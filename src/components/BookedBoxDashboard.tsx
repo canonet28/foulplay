@@ -711,24 +711,26 @@ export default function BookedBoxDashboard() {
                 </div>
 
                 <div className="border-b border-slate-100 p-4 sm:p-5">
-                  <div className="grid grid-cols-2 gap-1 rounded-full bg-slate-100 p-1">
-                    {matchTeams.map(team => (
-                      <button
-                        key={team}
-                        type="button"
-                        onClick={() => setPickerTeam(team)}
-                        className={`min-h-10 rounded-full px-3 text-[10px] font-mono font-black uppercase tracking-widest transition-all ${
-                          pickerTeam === team
-                            ? 'bg-white text-slate-950 shadow-sm'
-                            : 'text-slate-400 hover:text-slate-700'
-                        }`}
-                      >
-                        <span className="block truncate">{team}</span>
-                      </button>
-                    ))}
-                  </div>
+                  {matchTeams.length > 0 && (
+                    <div className="grid grid-cols-2 gap-1 rounded-full bg-slate-100 p-1">
+                      {matchTeams.map(team => (
+                        <button
+                          key={team}
+                          type="button"
+                          onClick={() => setPickerTeam(team)}
+                          className={`min-h-10 rounded-full px-3 text-[10px] font-mono font-black uppercase tracking-widest transition-all ${
+                            pickerTeam === team
+                              ? 'bg-white text-slate-950 shadow-sm'
+                              : 'text-slate-400 hover:text-slate-700'
+                          }`}
+                        >
+                          <span className="block truncate">{team}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-                  <label className="mt-4 flex h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 focus-within:border-rose-300 focus-within:ring-2 focus-within:ring-rose-100">
+                  <label className={`${matchTeams.length > 0 ? 'mt-4' : ''} flex h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 focus-within:border-rose-300 focus-within:ring-2 focus-within:ring-rose-100`}>
                     <Search size={17} />
                     <input
                       value={pickerSearch}
@@ -776,7 +778,7 @@ export default function BookedBoxDashboard() {
 
                     {pickerPlayers.length === 0 && (
                       <div className="flex min-h-28 items-center justify-center bg-white px-4 text-center text-xs font-mono font-bold uppercase tracking-widest text-slate-400">
-                        No available players match your search
+                        {matchData.playerStats.length === 0 ? 'Player data is not available for this fixture yet' : 'No available players match your search'}
                       </div>
                     )}
                   </div>

@@ -281,20 +281,25 @@ export class SportMonksMatchProvider implements MatchProvider {
     const teamId = team?.id;
     if (!teamId || !this.worldCupSeasonId) return [];
 
-    try {
-      const data = await this.request(
-        `/squads/seasons/${encodeURIComponent(this.worldCupSeasonId)}/teams/${encodeURIComponent(String(teamId))}`,
-        this.squadIncludes ? { include: this.squadIncludes } : {},
-        SPORTMONKS_WORLD_CUP_SQUAD_CACHE_MS,
-      );
+    const params = this.squadIncludes ? { include: this.squadIncludes } : {};
+    const endpoints = [
+      `/squads/seasons/${encodeURIComponent(this.worldCupSeasonId)}/teams/${encodeURIComponent(String(teamId))}`,
+      `/squads/teams/${encodeURIComponent(String(teamId))}/seasons/${encodeURIComponent(this.worldCupSeasonId)}`,
+    ];
 
-      return asArray(data.data)
-        .map((squadPlayer) => createSquadPlayer(squadPlayer, team))
-        .filter((player): player is PlayerStats => Boolean(player));
-    } catch (err) {
-      console.warn(`Unable to fetch SportMonks squad for team ${team?.name ?? teamId}:`, err);
-      return [];
+    for (const endpoint of endpoints) {
+      try {
+        const data = await this.request(endpoint, params, SPORTMONKS_WORLD_CUP_SQUAD_CACHE_MS);
+        const players = extractSquadEntries(data.data)
+          .map((squadPlayer) => createSquadPlayer(squadPlayer, team))
+          .filter((player): player is PlayerStats => Boolean(player));
+        if (players.length > 0) return players;
+      } catch (err) {
+        console.warn(`Unable to fetch SportMonks squad for team ${team?.name ?? teamId} from ${endpoint}:`, err);
+      }
     }
+
+    return [];
   }
 
   private mapFixtureSummary(fixture: any, fallbackLeagueName = 'Football'): MatchSummary {
@@ -429,6 +434,19 @@ function collectScheduleFixtures(scheduleData: unknown) {
   }
 
   return fixtures;
+}
+
+function extractSquadEntries(squadData: unknown): any[] {
+  if (Array.isArray(squadData)) return squadData;
+  if (!squadData || typeof squadData !== 'object') return [];
+
+  const value = squadData as any;
+  return [
+    ...asArray(value.squad),
+    ...asArray(value.players),
+    ...asArray(value.members),
+    ...asArray(value.data),
+  ];
 }
 
 function getParticipants(fixture: any) {

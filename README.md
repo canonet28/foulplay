@@ -112,6 +112,12 @@ In World Cup mode, the app also uses announced team squads as the pre-match play
 /v3/football/squads/seasons/{season_id}/teams/{team_id}
 ```
 
+If that endpoint is unavailable for your SportMonks plan/route shape, the provider also tries:
+
+```txt
+/v3/football/squads/teams/{team_id}/seasons/{season_id}
+```
+
 Fixture lineups still take precedence when available; squad players fill in the rest of the picker so it is usable before official lineups are published. Override the squad include list with:
 
 ```bash
