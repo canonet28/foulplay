@@ -1,0 +1,68 @@
+{
+  "lobbies": {
+    "match-mock": [
+      {
+        "entryId": "match-mock-99d827b9-3f65-4aa9-937f-c9410564072c-mock",
+        "userId": "99d827b9-3f65-4aa9-937f-c9410564072c",
+        "displayName": "You",
+        "matchId": "mock",
+        "selectedPlayers": {
+          "Hitman": "p1",
+          "HotHead": "p3",
+          "LooseCannon": "p2"
+        },
+        "lockedAt": "2026-06-01T19:21:47.317Z"
+      },
+      {
+        "entryId": "match-mock-1ab3a36a-8771-431c-a6b5-a09f338a131d-mock",
+        "userId": "1ab3a36a-8771-431c-a6b5-a09f338a131d",
+        "displayName": "You",
+        "matchId": "mock",
+        "selectedPlayers": {
+          "Hitman": "p1",
+          "HotHead": "p2",
+          "LooseCannon": "p3"
+        },
+        "lockedAt": "2026-06-01T21:51:38.139Z"
+      },
+      {
+        "entryId": "match-mock-local-mq5o3blz-anm70o42-mock",
+        "userId": "local-mq5o3blz-anm70o42",
+        "displayName": "C28",
+        "matchId": "mock",
+        "selectedPlayers": {
+          "Hitman": "p7",
+          "HotHead": "p3",
+          "LooseCannon": "p2"
+        },
+        "lockedAt": "2026-06-08T20:33:03.758Z"
+      }
+    ],
+    "match-mock2": [
+      {
+        "entryId": "match-mock2-1ab3a36a-8771-431c-a6b5-a09f338a131d-mock2",
+        "userId": "1ab3a36a-8771-431c-a6b5-a09f338a131d",
+        "displayName": "You",
+        "matchId": "mock2",
+        "selectedPlayers": {
+          "Hitman": "p1",
+          "HotHead": "p2",
+          "LooseCannon": "p3"
+        },
+        "lockedAt": "2026-06-06T02:39:13.280Z"
+      },
+      {
+        "entryId": "match-mock2-local-mq5o3blz-anm70o42-mock2",
+        "userId": "local-mq5o3blz-anm70o42",
+        "displayName": "C28",
+        "matchId": "mock2",
+        "selectedPlayers": {
+          "Hitman": "p1",
+          "HotHead": "p3",
+          "LooseCannon": "p2"
+        },
+        "lockedAt": "2026-06-09T01:08:59.227Z"
+      }
+    ]
+  }
+}
