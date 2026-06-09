@@ -15,6 +15,13 @@ export interface MatchProvider {
   startMatch(matchId: string): Promise<{ success: boolean; matchStatus: MatchStatus }>;
 }
 
+const SPORTMONKS_FIXTURE_DETAIL_CACHE_MS = 15_000;
+const SPORTMONKS_FIXTURE_LIST_CACHE_MS = 6 * 60 * 60_000;
+const SPORTMONKS_WORLD_CUP_SCHEDULE_CACHE_MS = 24 * 60 * 60_000;
+const SPORTMONKS_PREMATCH_FAR_CACHE_MS = 15 * 60_000;
+const SPORTMONKS_PREMATCH_NEAR_CACHE_MS = 60_000;
+const SPORTMONKS_PREMATCH_CLOSE_CACHE_MS = 15_000;
+
 const initialPlayers: PlayerStats[] = [
   { id: 'p1', name: 'R. Keane', team: 'Millwall', position: 'MID', fouls: 0, yellowCards: [], redCards: [], score: 0 },
   { id: 'p2', name: 'S. Ramos', team: 'Millwall', position: 'DEF', fouls: 0, yellowCards: [], redCards: [], score: 0 },
@@ -119,6 +126,7 @@ export class SportMonksMatchProvider implements MatchProvider {
   constructor(
     private apiToken: string,
     private fixtureIncludes = process.env.SPORTMONKS_FIXTURE_INCLUDE ?? 'scores;events;participants;lineups;state',
+    private preMatchFixtureIncludes = process.env.SPORTMONKS_PREMATCH_FIXTURE_INCLUDE ?? 'participants;lineups;state',
     private upcomingMode = process.env.SPORTMONKS_UPCOMING_MODE ?? 'date',
     private worldCupSeasonId = process.env.SPORTMONKS_WORLD_CUP_SEASON_ID,
     private worldCupLeagueId = process.env.SPORTMONKS_WORLD_CUP_LEAGUE_ID,
@@ -138,7 +146,7 @@ export class SportMonksMatchProvider implements MatchProvider {
     const data = await this.request(`/fixtures/date/${today}`, {
       include: 'participants;league;state',
       order: 'asc',
-    });
+    }, SPORTMONKS_FIXTURE_LIST_CACHE_MS);
 
     return asArray(data.data).slice(0, 20).map((fixture) => this.mapFixtureSummary(fixture));
   }
@@ -148,10 +156,19 @@ export class SportMonksMatchProvider implements MatchProvider {
       throw new Error(`SportMonks fixture IDs must be numeric. Received "${matchId}"`);
     }
 
-    const data = await this.request(`/fixtures/${encodeURIComponent(matchId)}`, {
+    const preMatchData = await this.request(`/fixtures/${encodeURIComponent(matchId)}`, {
+      include: this.preMatchFixtureIncludes,
+    }, this.getPreMatchFixtureCacheTtl(matchId));
+
+    const preMatchSync = this.mapFixtureSync(preMatchData.data, matchId);
+    if (preMatchSync.matchStatus === 'PRE_MATCH') {
+      return preMatchSync;
+    }
+
+    const liveData = await this.request(`/fixtures/${encodeURIComponent(matchId)}`, {
       include: this.fixtureIncludes,
-    });
-    return this.mapFixtureSync(data.data, matchId);
+    }, SPORTMONKS_FIXTURE_DETAIL_CACHE_MS);
+    return this.mapFixtureSync(liveData.data, matchId);
   }
 
   async startMatch(matchId: string) {
@@ -167,7 +184,7 @@ export class SportMonksMatchProvider implements MatchProvider {
     const data = await this.request(`/fixtures/between/${startDate}/${endDate}`, {
       include: 'participants;league;state',
       order: 'asc',
-    });
+    }, SPORTMONKS_FIXTURE_LIST_CACHE_MS);
 
     return asArray(data.data).slice(0, 20).map((fixture) => this.mapFixtureSummary(fixture));
   }
@@ -177,7 +194,11 @@ export class SportMonksMatchProvider implements MatchProvider {
       throw new Error('SPORTMONKS_WORLD_CUP_SEASON_ID is required when SPORTMONKS_UPCOMING_MODE=world-cup');
     }
 
-    const data = await this.request(`/schedules/seasons/${encodeURIComponent(this.worldCupSeasonId)}`, {});
+    const data = await this.request(
+      `/schedules/seasons/${encodeURIComponent(this.worldCupSeasonId)}`,
+      {},
+      SPORTMONKS_WORLD_CUP_SCHEDULE_CACHE_MS,
+    );
     const cutoff = Date.now() - 6 * 60 * 60_000;
     const fixtures = collectScheduleFixtures(data.data)
       .filter((fixture) => !this.worldCupLeagueId || String(fixture.league_id) === String(this.worldCupLeagueId))
@@ -190,7 +211,7 @@ export class SportMonksMatchProvider implements MatchProvider {
     return fixtures.slice(0, 20).map((fixture) => this.mapFixtureSummary(fixture, this.worldCupName));
   }
 
-  private async request(endpoint: string, params: Record<string, string>) {
+  private async request(endpoint: string, params: Record<string, string>, cacheTtlMs = SPORTMONKS_FIXTURE_DETAIL_CACHE_MS) {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     url.searchParams.set('api_token', this.apiToken);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
@@ -206,8 +227,29 @@ export class SportMonksMatchProvider implements MatchProvider {
       throw new Error(`SportMonks request failed (${res.status}) ${body}`);
     }
     const value = await res.json();
-    this.cache.set(cacheKey, { value, expiresAt: Date.now() + 15_000 });
+    this.cache.set(cacheKey, { value, expiresAt: Date.now() + cacheTtlMs });
     return value;
+  }
+
+  private getPreMatchFixtureCacheTtl(matchId: string) {
+    const cachedFixture = this.getCachedFixture(`/fixtures/${encodeURIComponent(matchId)}`, {
+      include: this.preMatchFixtureIncludes,
+    });
+    const startsAt = Date.parse(cachedFixture?.starting_at ?? '');
+    if (!Number.isFinite(startsAt)) return SPORTMONKS_PREMATCH_NEAR_CACHE_MS;
+
+    const msUntilKickoff = startsAt - Date.now();
+    if (msUntilKickoff > 60 * 60_000) return SPORTMONKS_PREMATCH_FAR_CACHE_MS;
+    if (msUntilKickoff > 5 * 60_000) return SPORTMONKS_PREMATCH_NEAR_CACHE_MS;
+    return SPORTMONKS_PREMATCH_CLOSE_CACHE_MS;
+  }
+
+  private getCachedFixture(endpoint: string, params: Record<string, string>) {
+    const url = new URL(`${this.baseUrl}${endpoint}`);
+    url.searchParams.set('api_token', this.apiToken);
+    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+    const cached = this.cache.get(url.toString());
+    return cached?.value && typeof cached.value === 'object' ? (cached.value as any).data : null;
   }
 
   private mapFixtureSummary(fixture: any, fallbackLeagueName = 'Football'): MatchSummary {

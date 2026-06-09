@@ -78,10 +78,31 @@ World Cup mode uses the SportMonks season schedule endpoint:
 
 It flattens the schedule's stages and rounds into fixtures, filters to upcoming matches, and optionally filters by `SPORTMONKS_WORLD_CUP_LEAGUE_ID`.
 
+SportMonks responses are cached in memory per server instance with endpoint-aware TTLs:
+
+```txt
+pre-match fixture detail: 15 minutes when far from kickoff, 60 seconds near kickoff, 15 seconds inside 5 minutes
+live/full fixture detail: 15 seconds
+fixture date/between lists: 6 hours
+World Cup season schedule: 24 hours
+```
+
 The default fixture detail include list is:
 
 ```txt
 scores;events;participants;lineups;state
+```
+
+Before kickoff, the app uses a lighter fixture include list:
+
+```txt
+participants;lineups;state
+```
+
+Override it with:
+
+```bash
+SPORTMONKS_PREMATCH_FIXTURE_INCLUDE='participants;lineups;state'
 ```
 
 Override it only if your SportMonks plan supports the requested nested includes:
