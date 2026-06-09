@@ -18,7 +18,15 @@ function getLockLabel(matchData: MatchSyncResponse) {
   const deadline = matchData.lockAt ?? matchData.startsAt;
   if (matchData.matchStatus !== 'PRE_MATCH') return 'LOCK CLOSED';
   if (!deadline) return 'LOCK OPEN';
-  return `LOCK CLOSES ${new Date(deadline).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+  return `LOCK CLOSES ${new Date(deadline).toLocaleString(undefined, {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  })}`;
 }
 
 function createLocalUserId() {
