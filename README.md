@@ -85,6 +85,7 @@ pre-match fixture detail: 15 minutes when far from kickoff, 60 seconds near kick
 live/full fixture detail: 15 seconds
 fixture date/between lists: 6 hours
 World Cup season schedule: 24 hours
+World Cup team squads: 24 hours
 ```
 
 The default fixture detail include list is:
@@ -103,6 +104,18 @@ Override it with:
 
 ```bash
 SPORTMONKS_PREMATCH_FIXTURE_INCLUDE='participants;lineups;state'
+```
+
+In World Cup mode, the app also uses announced team squads as the pre-match player-pool fallback:
+
+```txt
+/v3/football/squads/seasons/{season_id}/teams/{team_id}
+```
+
+Fixture lineups still take precedence when available; squad players fill in the rest of the picker so it is usable before official lineups are published. Override the squad include list with:
+
+```bash
+SPORTMONKS_SQUAD_INCLUDE='player;position'
 ```
 
 Override it only if your SportMonks plan supports the requested nested includes:

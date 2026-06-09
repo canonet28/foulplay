@@ -21,6 +21,7 @@ const SPORTMONKS_WORLD_CUP_SCHEDULE_CACHE_MS = 24 * 60 * 60_000;
 const SPORTMONKS_PREMATCH_FAR_CACHE_MS = 15 * 60_000;
 const SPORTMONKS_PREMATCH_NEAR_CACHE_MS = 60_000;
 const SPORTMONKS_PREMATCH_CLOSE_CACHE_MS = 15_000;
+const SPORTMONKS_WORLD_CUP_SQUAD_CACHE_MS = 24 * 60 * 60_000;
 
 const initialPlayers: PlayerStats[] = [
   { id: 'p1', name: 'R. Keane', team: 'Millwall', position: 'MID', fouls: 0, yellowCards: [], redCards: [], score: 0 },
@@ -127,6 +128,7 @@ export class SportMonksMatchProvider implements MatchProvider {
     private apiToken: string,
     private fixtureIncludes = process.env.SPORTMONKS_FIXTURE_INCLUDE ?? 'scores;events;participants;lineups;state',
     private preMatchFixtureIncludes = process.env.SPORTMONKS_PREMATCH_FIXTURE_INCLUDE ?? 'participants;lineups;state',
+    private squadIncludes = process.env.SPORTMONKS_SQUAD_INCLUDE ?? 'player;position',
     private upcomingMode = process.env.SPORTMONKS_UPCOMING_MODE ?? 'date',
     private worldCupSeasonId = process.env.SPORTMONKS_WORLD_CUP_SEASON_ID,
     private worldCupLeagueId = process.env.SPORTMONKS_WORLD_CUP_LEAGUE_ID,
@@ -162,13 +164,13 @@ export class SportMonksMatchProvider implements MatchProvider {
 
     const preMatchSync = this.mapFixtureSync(preMatchData.data, matchId);
     if (preMatchSync.matchStatus === 'PRE_MATCH') {
-      return preMatchSync;
+      return this.withWorldCupSquadPlayers(preMatchData.data, preMatchSync);
     }
 
     const liveData = await this.request(`/fixtures/${encodeURIComponent(matchId)}`, {
       include: this.fixtureIncludes,
     }, SPORTMONKS_FIXTURE_DETAIL_CACHE_MS);
-    return this.mapFixtureSync(liveData.data, matchId);
+    return this.withWorldCupSquadPlayers(liveData.data, this.mapFixtureSync(liveData.data, matchId));
   }
 
   async startMatch(matchId: string) {
@@ -250,6 +252,49 @@ export class SportMonksMatchProvider implements MatchProvider {
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
     const cached = this.cache.get(url.toString());
     return cached?.value && typeof cached.value === 'object' ? (cached.value as any).data : null;
+  }
+
+  private async withWorldCupSquadPlayers(fixture: any, matchSync: MatchSyncResponse): Promise<MatchSyncResponse> {
+    if (this.upcomingMode !== 'world-cup' || !this.worldCupSeasonId) {
+      return matchSync;
+    }
+
+    const { home, away } = getParticipants(fixture);
+    const playerMap = new Map(matchSync.playerStats.map((player) => [player.id, player]));
+
+    await Promise.all([home, away].filter(Boolean).map(async (team) => {
+      const squadPlayers = await this.getSquadPlayersForTeam(team);
+      squadPlayers.forEach((player) => {
+        if (!playerMap.has(player.id)) {
+          playerMap.set(player.id, player);
+        }
+      });
+    }));
+
+    return {
+      ...matchSync,
+      playerStats: [...playerMap.values()],
+    };
+  }
+
+  private async getSquadPlayersForTeam(team: any): Promise<PlayerStats[]> {
+    const teamId = team?.id;
+    if (!teamId || !this.worldCupSeasonId) return [];
+
+    try {
+      const data = await this.request(
+        `/squads/seasons/${encodeURIComponent(this.worldCupSeasonId)}/teams/${encodeURIComponent(String(teamId))}`,
+        this.squadIncludes ? { include: this.squadIncludes } : {},
+        SPORTMONKS_WORLD_CUP_SQUAD_CACHE_MS,
+      );
+
+      return asArray(data.data)
+        .map((squadPlayer) => createSquadPlayer(squadPlayer, team))
+        .filter((player): player is PlayerStats => Boolean(player));
+    } catch (err) {
+      console.warn(`Unable to fetch SportMonks squad for team ${team?.name ?? teamId}:`, err);
+      return [];
+    }
   }
 
   private mapFixtureSummary(fixture: any, fallbackLeagueName = 'Football'): MatchSummary {
@@ -447,6 +492,38 @@ function createEventPlayer(playerId: string, event: any, team: string): PlayerSt
     name: event.player_name ?? event.player?.display_name ?? event.player?.name ?? `Player ${playerId}`,
     team,
     position: 'UNK',
+    fouls: 0,
+    yellowCards: [],
+    redCards: [],
+    score: 0,
+  };
+}
+
+function createSquadPlayer(squadPlayer: any, team: any): PlayerStats | null {
+  const player = squadPlayer.player ?? squadPlayer;
+  const playerId = squadPlayer.player_id ?? player?.id ?? squadPlayer.id;
+  if (!playerId) return null;
+
+  const name =
+    squadPlayer.player_name ??
+    player?.display_name ??
+    player?.common_name ??
+    player?.name ??
+    player?.fullname ??
+    `Player ${playerId}`;
+  const position =
+    squadPlayer.position?.code ??
+    squadPlayer.position?.name ??
+    player?.position?.code ??
+    player?.position?.name ??
+    player?.detailed_position?.name ??
+    'UNK';
+
+  return {
+    id: String(playerId),
+    name,
+    team: team?.name ?? 'Unknown Team',
+    position,
     fouls: 0,
     yellowCards: [],
     redCards: [],
