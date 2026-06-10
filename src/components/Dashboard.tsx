@@ -105,17 +105,6 @@ export default function Dashboard() {
             })}
           </div>
         )}
-
-        <div className="mt-10 text-center">
-          <a
-            href="https://buymeacoffee.com/dialupdecibels"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-[10px] font-mono font-black uppercase tracking-widest text-slate-400 transition-colors hover:border-yellow-300 hover:text-slate-900"
-          >
-            Enjoying foulPLAY? Buy me a coffee
-          </a>
-        </div>
       </main>
 
       <AnimatePresence>
