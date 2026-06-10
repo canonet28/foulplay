@@ -8,6 +8,13 @@ import { LeaderboardEntry, LeaderboardResponse, LockedSelectedPlayers, MatchSync
 
 type LeaderboardScope = 'lobby' | 'global';
 
+interface CurrentEntryResponse {
+  entry: {
+    displayName: string;
+    selectedPlayers: LockedSelectedPlayers;
+  } | null;
+}
+
 function isEntryLockClosed(matchData: MatchSyncResponse | null) {
   if (!matchData) return false;
   const deadline = matchData.lockAt ?? matchData.startsAt;
@@ -38,6 +45,19 @@ function createLocalUserId() {
   }
 
   return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getDraftKey(matchId: string | undefined, lobbyId: string, userId: string) {
+  return `foulcup:draft:${matchId || 'mock'}:${lobbyId}:${userId}`;
+}
+
+function isSelectedPlayers(value: unknown): value is SelectedPlayers {
+  if (!value || typeof value !== 'object') return false;
+  const selection = value as Partial<SelectedPlayers>;
+  return ['Hitman', 'HotHead', 'LooseCannon'].every((role) => {
+    const selected = selection[role as SlotRole];
+    return selected === null || typeof selected === 'string';
+  });
 }
 
 async function copyTextToClipboard(text: string) {
@@ -84,12 +104,14 @@ export default function BookedBoxDashboard() {
   const [activeRole, setActiveRole] = useState<SlotRole | null>(null);
   const [pickerTeam, setPickerTeam] = useState('');
   const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerPosition, setPickerPosition] = useState('All');
   const [showRules, setShowRules] = useState(false);
   const [selectedPlayers, setSelectedPlayers] = useState<SelectedPlayers>({
     Hitman: null,
     HotHead: null,
     LooseCannon: null
   });
+  const [hasRestoredEntry, setHasRestoredEntry] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [lastStats, setLastStats] = useState<Record<string, PlayerStats>>({});
   const [flashEvents, setFlashEvents] = useState<Record<string, boolean>>({});
@@ -151,6 +173,53 @@ export default function BookedBoxDashboard() {
     return () => clearInterval(interval);
   }, [fetchLiveMatch]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreEntry = async () => {
+      try {
+        const params = new URLSearchParams({
+          userId,
+          matchId: matchId || 'mock',
+        });
+        const res = await fetch(`/api/lobbies/${lobbyId}/entries/current?${params.toString()}`);
+        if (res.ok) {
+          const data: CurrentEntryResponse = await res.json();
+          if (!cancelled && data.entry) {
+            setSelectedPlayers(data.entry.selectedPlayers);
+            setDisplayName(data.entry.displayName);
+            setIsLocked(true);
+            setHasRestoredEntry(true);
+            window.localStorage.removeItem(getDraftKey(matchId, lobbyId, userId));
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to restore locked entry:", err);
+      }
+
+      if (!cancelled) {
+        const rawDraft = window.localStorage.getItem(getDraftKey(matchId, lobbyId, userId));
+        if (rawDraft) {
+          try {
+            const parsed = JSON.parse(rawDraft) as unknown;
+            if (isSelectedPlayers(parsed)) {
+              setSelectedPlayers(parsed);
+            }
+          } catch (err) {
+            console.error("Failed to restore draft picks:", err);
+          }
+        }
+        setHasRestoredEntry(true);
+      }
+    };
+
+    restoreEntry();
+    return () => {
+      cancelled = true;
+    };
+  }, [lobbyId, matchId, userId]);
+
   const fetchLeaderboard = useCallback(async () => {
     try {
       const params = new URLSearchParams({
@@ -183,6 +252,21 @@ export default function BookedBoxDashboard() {
     }
   }, [displayName]);
 
+  useEffect(() => {
+    if (!hasRestoredEntry) return;
+    const draftKey = getDraftKey(matchId, lobbyId, userId);
+    if (isLocked) {
+      window.localStorage.removeItem(draftKey);
+      return;
+    }
+
+    if (Object.values(selectedPlayers).some(Boolean)) {
+      window.localStorage.setItem(draftKey, JSON.stringify(selectedPlayers));
+    } else {
+      window.localStorage.removeItem(draftKey);
+    }
+  }, [hasRestoredEntry, isLocked, lobbyId, matchId, selectedPlayers, userId]);
+
   const openRolePicker = (role: SlotRole) => {
     if (isLocked || isEntryLockClosed(matchData)) return;
     const selectedPlayer = selectedPlayers[role]
@@ -190,6 +274,7 @@ export default function BookedBoxDashboard() {
       : null;
     setPickerTeam(selectedPlayer?.team ?? matchTeams[0] ?? '');
     setPickerSearch('');
+    setPickerPosition('All');
     setActiveRole(role);
   };
 
@@ -259,6 +344,7 @@ export default function BookedBoxDashboard() {
       const entryData: { leaderboard: LeaderboardEntry[] } = await entryRes.json();
       setLeaderboardEntries(entryData.leaderboard);
       setIsLocked(true);
+      window.localStorage.removeItem(getDraftKey(matchId, lobbyId, userId));
       fetchLeaderboard();
     } catch (err) {
       console.error("Failed to lock card:", err);
@@ -352,6 +438,10 @@ export default function BookedBoxDashboard() {
     () => Array.from(new Set((matchData?.playerStats ?? []).map(player => player.team).filter(Boolean))),
     [matchData?.playerStats]
   );
+  const pickerPositions = useMemo(
+    () => ['All', ...Array.from(new Set((matchData?.playerStats ?? []).map(player => player.position).filter(Boolean))).sort()],
+    [matchData?.playerStats]
+  );
 
   useEffect(() => {
     if (!activeRole || matchTeams.length === 0) return;
@@ -386,6 +476,7 @@ export default function BookedBoxDashboard() {
     ? matchData.playerStats
         .filter(player => isPlayerAvailableForRole(player.id, activeRole))
         .filter(player => !pickerTeam || player.team === pickerTeam)
+        .filter(player => pickerPosition === 'All' || player.position === pickerPosition)
         .filter(player => {
           if (!normalizedPickerSearch) return true;
           return [player.name, player.position, player.team].some(value => value.toLowerCase().includes(normalizedPickerSearch));
@@ -733,15 +824,33 @@ export default function BookedBoxDashboard() {
                     </div>
                   )}
 
-                  <label className={`${matchTeams.length > 0 ? 'mt-4' : ''} flex h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 focus-within:border-rose-300 focus-within:ring-2 focus-within:ring-rose-100`}>
-                    <Search size={17} />
-                    <input
-                      value={pickerSearch}
-                      onChange={event => setPickerSearch(event.target.value)}
-                      placeholder="Search players"
-                      className="h-full min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-                    />
-                  </label>
+                  <div className={`${matchTeams.length > 0 ? 'mt-4' : ''} flex flex-col gap-3 sm:flex-row`}>
+                    <label className="flex h-11 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 focus-within:border-rose-300 focus-within:ring-2 focus-within:ring-rose-100">
+                      <Search size={17} />
+                      <input
+                        value={pickerSearch}
+                        onChange={event => setPickerSearch(event.target.value)}
+                        placeholder="Search players"
+                        className="h-full min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                      />
+                    </label>
+                    <div className="flex h-11 gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 sm:max-w-[260px]">
+                      {pickerPositions.map(position => (
+                        <button
+                          key={position}
+                          type="button"
+                          onClick={() => setPickerPosition(position)}
+                          className={`shrink-0 rounded-xl px-3 text-[10px] font-mono font-black uppercase tracking-widest transition-colors ${
+                            pickerPosition === position
+                              ? 'bg-white text-slate-950 shadow-sm'
+                              : 'text-slate-400 hover:text-slate-700'
+                          }`}
+                        >
+                          {position}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="overflow-y-auto p-3 sm:p-4">

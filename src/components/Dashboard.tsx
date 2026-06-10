@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Calendar, ChevronRight, Shield, Flame } from 'lucide-react';
+import { Calendar, ChevronRight, Shield } from 'lucide-react';
 import { toMatchDate } from '../dateTime';
 
 interface Match {
@@ -49,8 +49,7 @@ export default function Dashboard() {
 
       <main className="max-w-4xl mx-auto px-4 py-8 md:px-6 md:py-12">
         <div className="mb-8 md:mb-12 text-center md:text-left">
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter mb-3 md:mb-4 flex items-center justify-center md:justify-start gap-3">
-             <Flame className="text-red-500 shrink-0" size={26} />
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter mb-3 md:mb-4">
              UPCOMING FIXTURES
           </h2>
           <p className="text-sm md:text-base text-slate-500 font-medium">Select a match below and assign your Roster for foulPlay.</p>

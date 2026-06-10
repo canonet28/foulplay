@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { config as loadEnv } from "dotenv";
 import { createServer as createViteServer } from "vite";
-import { FileLobbyStore, type LobbyEntry } from "./src/lobbyStore";
+import { FileLobbyStore, PostgresLobbyStore, type LobbyEntry, type LobbyStore } from "./src/lobbyStore";
 import { HybridMatchProvider, MockMatchProvider, SportMonksMatchProvider, type MatchProvider } from "./src/matchProviders";
 import { calculatePlayerScore } from "./src/scoring";
 import { parseMatchDateTime } from "./src/dateTime";
@@ -16,7 +16,7 @@ const slotRoles: SlotRole[] = ["Hitman", "HotHead", "LooseCannon"];
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT ?? 3000);
-  const lobbyStore = new FileLobbyStore(process.env.LOBBY_STORE_PATH);
+  const lobbyStore = createLobbyStore();
   const matchProvider = createMatchProvider();
 
   await lobbyStore.load();
@@ -88,7 +88,7 @@ async function startServer() {
 
   const getLobbyLeaderboard = async (lobbyId: string, matchId: string, currentUserId?: string) => {
     const match = await matchProvider.getMatchSync(matchId);
-    const entries = lobbyStore.getEntries(lobbyId).filter((entry) => entry.matchId === matchId);
+    const entries = (await lobbyStore.getEntries(lobbyId)).filter((entry) => entry.matchId === matchId);
     const rankedEntries = buildRankedEntries(entries, match.playerStats, match.matchStatus === "FT", currentUserId);
 
     return { match, entries: rankedEntries };
@@ -97,8 +97,7 @@ async function startServer() {
   const getGlobalMatchLeaderboard = async (matchId: string, currentUserId?: string) => {
     const match = await matchProvider.getMatchSync(matchId);
     const seenUserIds = new Set<string>();
-    const entries = lobbyStore
-      .getAllEntries()
+    const entries = (await lobbyStore.getAllEntries())
       .filter((entry) => entry.matchId === matchId)
       .filter((entry) => {
         if (seenUserIds.has(entry.userId)) return false;
@@ -169,7 +168,7 @@ async function startServer() {
         return;
       }
 
-      const existing = lobbyStore.getEntries(lobbyId).find((entry) => entry.userId === userId && entry.matchId === matchId);
+      const existing = (await lobbyStore.getEntries(lobbyId)).find((entry) => entry.userId === userId && entry.matchId === matchId);
       const entry: LobbyEntry = {
         entryId: existing?.entryId ?? `${lobbyId}-${userId}-${matchId}`,
         userId,
@@ -188,6 +187,28 @@ async function startServer() {
     } catch (err) {
       console.error("Failed to save lobby entry:", err);
       res.status(502).json({ error: "Unable to save lobby entry" });
+    }
+  });
+
+  app.get("/api/lobbies/:lobbyId/entries/current", async (req, res) => {
+    try {
+      const { lobbyId } = req.params;
+      const userId = typeof req.query.userId === "string" ? req.query.userId : "";
+      const matchId = typeof req.query.matchId === "string" ? req.query.matchId : "mock";
+
+      if (!userId.trim()) {
+        res.status(400).json({ error: "userId is required" });
+        return;
+      }
+
+      const entry = (await lobbyStore.getEntries(lobbyId)).find(
+        (candidate) => candidate.userId === userId && candidate.matchId === matchId,
+      );
+
+      res.json({ entry: entry ?? null });
+    } catch (err) {
+      console.error("Failed to fetch current lobby entry:", err);
+      res.status(502).json({ error: "Unable to fetch current lobby entry" });
     }
   });
 
@@ -255,6 +276,13 @@ function createMatchProvider(): MatchProvider {
     return new HybridMatchProvider(mockProvider, new SportMonksMatchProvider(process.env.SPORTMONKS_API_TOKEN));
   }
   return new HybridMatchProvider(mockProvider);
+}
+
+function createLobbyStore(): LobbyStore {
+  if (process.env.DATABASE_URL) {
+    return new PostgresLobbyStore(process.env.DATABASE_URL);
+  }
+  return new FileLobbyStore(process.env.LOBBY_STORE_PATH);
 }
 
 startServer();

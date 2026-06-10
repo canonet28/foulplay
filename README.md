@@ -132,7 +132,30 @@ SPORTMONKS_FIXTURE_INCLUDE='scores;events;participants;lineups.details.type;stat
 
 ## Persistence
 
-Lobby entries are persisted to:
+Draft picks are stored in browser `localStorage` until the user commits their picks.
+
+Locked lobby entries use Postgres when `DATABASE_URL` is set:
+
+```bash
+DATABASE_URL=postgres://...
+```
+
+On startup, the server creates this table and indexes automatically if they do not exist:
+
+```sql
+CREATE TABLE IF NOT EXISTS lobby_entries (
+  entry_id TEXT PRIMARY KEY,
+  lobby_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  match_id TEXT NOT NULL,
+  selected_players JSONB NOT NULL,
+  locked_at TIMESTAMPTZ NOT NULL,
+  UNIQUE (lobby_id, user_id, match_id)
+);
+```
+
+For local development without `DATABASE_URL`, locked entries fall back to:
 
 ```txt
 .data/lobbies.json
@@ -144,7 +167,11 @@ Override this path with:
 LOBBY_STORE_PATH=/path/to/lobbies.json
 ```
 
-This is suitable for local development and demos. For production, replace `FileLobbyStore` with Postgres, Supabase, Firestore, or another durable multi-instance store.
+On Railway, add a Postgres database service and connect it to the app service so Railway provides `DATABASE_URL`. Do not set `DATABASE_SSL=false` on Railway; the app uses SSL for Postgres by default. For local Postgres without SSL, set:
+
+```bash
+DATABASE_SSL=false
+```
 
 ## Checks
 
