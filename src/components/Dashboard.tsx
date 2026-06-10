@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Calendar, ChevronRight, Shield } from 'lucide-react';
+import { AlertTriangle, Calendar, ChevronRight, HelpCircle, Shield, Trophy, X } from 'lucide-react';
 import { toMatchDate } from '../dateTime';
 
 interface Match {
@@ -15,6 +15,7 @@ interface Match {
 export default function Dashboard() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showRules, setShowRules] = useState(false);
 
   useEffect(() => {
     fetch('/api/matches/upcoming')
@@ -45,6 +46,14 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowRules(true)}
+          className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
+          aria-label="How to play"
+        >
+          <HelpCircle size={20} />
+        </button>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 md:px-6 md:py-12">
@@ -97,6 +106,77 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      <AnimatePresence>
+        {showRules && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm md:p-6"
+            onClick={() => setShowRules(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.25 }}
+              className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl md:rounded-[2rem] md:p-10"
+              onClick={event => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setShowRules(false)}
+                className="absolute right-6 top-6 text-slate-400 transition-colors hover:text-slate-900"
+                aria-label="Close how to play"
+              >
+                <X size={24} />
+              </button>
+
+              <h2 className="mb-2 text-xl font-black uppercase tracking-tight text-slate-900 md:text-2xl">How to Play</h2>
+              <p className="mb-8 max-w-sm text-sm font-medium leading-6 text-slate-500">
+                Pick three players for a match. You score when they commit fouls or collect cards.
+              </p>
+
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <Shield size={16} className="text-slate-700" />
+                    Base Points
+                  </h3>
+                  <ul className="space-y-2 font-mono text-sm text-slate-600">
+                    <li className="flex justify-between"><span>Foul committed</span> <span className="font-bold text-slate-900">+5 pts</span></li>
+                    <li className="flex justify-between"><span>Yellow card</span> <span className="font-bold text-slate-900">+20 pts</span></li>
+                    <li className="flex justify-between"><span>Red card</span> <span className="font-bold text-slate-900">+50 pts</span></li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <Trophy size={16} className="text-slate-700" />
+                    Role Multipliers
+                  </h3>
+                  <ul className="space-y-2 font-mono text-sm text-slate-600">
+                    <li className="flex justify-between"><span>Hitman fouls</span> <span className="font-bold text-slate-900">1.5x</span></li>
+                    <li className="flex justify-between"><span>Hot-Head yellows</span> <span className="font-bold text-slate-900">1.5x</span></li>
+                    <li className="flex justify-between"><span>Loose Cannon reds</span> <span className="font-bold text-slate-900">1.5x</span></li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-red-900">
+                    <AlertTriangle size={16} className="text-red-600" />
+                    Too Polite Penalty
+                  </h3>
+                  <p className="font-mono text-xs leading-relaxed text-red-700">
+                    A picked player who finishes with 0 fouls and 0 cards gets a <strong className="font-black">-15 pt</strong> penalty.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
