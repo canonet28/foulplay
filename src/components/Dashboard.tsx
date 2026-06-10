@@ -135,7 +135,7 @@ export default function Dashboard() {
 
               <h2 className="mb-2 text-xl font-black uppercase tracking-tight text-slate-900 md:text-2xl">How to Play</h2>
               <p className="mb-8 max-w-sm text-sm font-medium leading-6 text-slate-500">
-                Pick three players for a match. You score when they commit fouls or collect cards.
+                Pick three players for a match before kickoff. You score when they commit fouls or collect cards. Invite friends to compete. Every fixture is its own contest with lobby and global leaderboards.
               </p>
 
               <div className="space-y-6">
