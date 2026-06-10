@@ -570,7 +570,7 @@ export default function BookedBoxDashboard() {
                   scale: [1, 1.02, 1]
                 } : {}}
                 transition={{ duration: 0.5 }}
-                className={`w-full text-left relative flex flex-col justify-between min-h-[260px] sm:min-h-[340px] md:min-h-[400px] aspect-auto md:aspect-[3/4] p-5 sm:p-7 lg:p-10 rounded-3xl md:rounded-[2.5rem] transition-all duration-500 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 disabled:cursor-default
+                className={`w-full text-left relative flex flex-col justify-between min-h-[260px] sm:min-h-[340px] md:min-h-[430px] p-5 sm:p-7 lg:p-10 rounded-3xl md:rounded-[2.5rem] transition-all duration-500 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 disabled:cursor-default
                     ${playerId 
                         ? 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 hover:shadow-[0_20px_50px_-12px_rgb(0,0,0,0.12)]' 
                         : 'bg-white shadow-[0_10px_30px_rgb(15,23,42,0.05)] border border-slate-200/80 hover:border-slate-300 hover:bg-slate-50/40 hover:shadow-[0_18px_45px_rgb(15,23,42,0.09)]'}
@@ -605,14 +605,14 @@ export default function BookedBoxDashboard() {
                 </div>
 
                 {player ? (
-                  <div className="flex flex-col z-10 relative mt-8 md:mt-12 w-full">
-                    <div className="mb-6 md:mb-8">
-                      <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tighter leading-[0.95] mb-3 md:mb-4 break-words">{player.name}</div>
+                  <div className="flex flex-1 flex-col z-10 relative mt-8 md:mt-10 w-full">
+                    <div className="mb-6">
+                      <div className="text-3xl sm:text-4xl lg:text-[2.65rem] font-black text-slate-900 tracking-tighter leading-[0.95] mb-3 md:mb-4 break-words">{player.name}</div>
                       <div className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">{player.position} / {player.team}</div>
                     </div>
 
                     {isLocked && (
-                      <div className="mt-auto flex flex-col gap-6">
+                      <div className="mt-auto flex flex-col gap-5">
                         <div className="flex gap-8 md:gap-10">
                            <div className="flex flex-col">
                              <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest mb-1.5">Fouls</span>
@@ -628,9 +628,9 @@ export default function BookedBoxDashboard() {
                            </div>
                         </div>
                         
-                        <div className="pt-6 border-t border-slate-100/80 flex items-end justify-between relative group/points cursor-help">
+                        <div className="pt-5 border-t border-slate-100/80 flex items-end justify-between relative group/points cursor-help">
                           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest pb-1.5 border-b border-dashed border-slate-300">Points</span>
-                          <div className={`text-5xl md:text-6xl font-black tracking-tighter leading-none transition-colors ${calculateFrontendScore(player, role, matchData.matchStatus === 'FT') < 0 ? 'text-red-500' : 'text-slate-900 group-hover/points:text-slate-700'}`}>
+                          <div className={`text-5xl md:text-[3.5rem] font-black tracking-tighter leading-none transition-colors ${calculateFrontendScore(player, role, matchData.matchStatus === 'FT') < 0 ? 'text-red-500' : 'text-slate-900 group-hover/points:text-slate-700'}`}>
                             {calculateFrontendScore(player, role, matchData.matchStatus === 'FT') > 0 ? '+' : ''}{calculateFrontendScore(player, role, matchData.matchStatus === 'FT')}
                           </div>
                           
