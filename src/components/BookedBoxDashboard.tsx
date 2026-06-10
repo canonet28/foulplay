@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Shield, AlertTriangle, UserX, Check, Ghost, Share2, Trophy, HelpCircle, X, Users, ArrowLeft, LockKeyhole, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { calculatePlayerScore, getScoreBreakdown } from '../scoring';
+import { parseMatchDateTime, toMatchDate } from '../dateTime';
 import { LeaderboardEntry, LeaderboardResponse, LockedSelectedPlayers, MatchSyncResponse, PlayerStats, SelectedPlayers, SlotRole } from '../types';
 
 type LeaderboardScope = 'lobby' | 'global';
@@ -10,7 +11,7 @@ type LeaderboardScope = 'lobby' | 'global';
 function isEntryLockClosed(matchData: MatchSyncResponse | null) {
   if (!matchData) return false;
   const deadline = matchData.lockAt ?? matchData.startsAt;
-  const deadlineMs = deadline ? Date.parse(deadline) : Number.NaN;
+  const deadlineMs = parseMatchDateTime(deadline);
   return matchData.matchStatus !== 'PRE_MATCH' || (Number.isFinite(deadlineMs) && Date.now() > deadlineMs);
 }
 
@@ -18,7 +19,9 @@ function getLockLabel(matchData: MatchSyncResponse) {
   const deadline = matchData.lockAt ?? matchData.startsAt;
   if (matchData.matchStatus !== 'PRE_MATCH') return 'LOCK CLOSED';
   if (!deadline) return 'LOCK OPEN';
-  return `LOCK CLOSES ${new Date(deadline).toLocaleString(undefined, {
+  const deadlineDate = toMatchDate(deadline);
+  if (!deadlineDate) return 'LOCK OPEN';
+  return `LOCK CLOSES ${deadlineDate.toLocaleString(undefined, {
     weekday: 'short',
     year: 'numeric',
     month: 'short',

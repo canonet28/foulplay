@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 import { FileLobbyStore, type LobbyEntry } from "./src/lobbyStore";
 import { HybridMatchProvider, MockMatchProvider, SportMonksMatchProvider, type MatchProvider } from "./src/matchProviders";
 import { calculatePlayerScore } from "./src/scoring";
+import { parseMatchDateTime } from "./src/dateTime";
 import type { LeaderboardEntry, LockedSelectedPlayers, PlayerStats, SlotRole } from "./src/types";
 
 loadEnv({ path: ".env.local" });
@@ -35,7 +36,7 @@ async function startServer() {
 
   const getLockDeadline = (match: Awaited<ReturnType<MatchProvider["getMatchSync"]>>) => {
     const deadline = match.lockAt ?? match.startsAt;
-    return deadline ? Date.parse(deadline) : Number.NaN;
+    return parseMatchDateTime(deadline);
   };
 
   const isMatchLockClosed = (match: Awaited<ReturnType<MatchProvider["getMatchSync"]>>) => {

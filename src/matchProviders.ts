@@ -1,4 +1,5 @@
 import { calculatePlayerScore } from './scoring';
+import { parseMatchDateTime, toMatchDateTimeIso } from './dateTime';
 import type { MatchStatus, MatchSyncResponse, PlayerStats } from './types';
 
 export interface MatchSummary {
@@ -205,10 +206,10 @@ export class SportMonksMatchProvider implements MatchProvider {
     const fixtures = collectScheduleFixtures(data.data)
       .filter((fixture) => !this.worldCupLeagueId || String(fixture.league_id) === String(this.worldCupLeagueId))
       .filter((fixture) => {
-        const startingAt = Date.parse(fixture.starting_at ?? '');
+        const startingAt = parseMatchDateTime(fixture.starting_at);
         return Number.isFinite(startingAt) && startingAt >= cutoff;
       })
-      .sort((a, b) => Date.parse(a.starting_at ?? '') - Date.parse(b.starting_at ?? ''));
+      .sort((a, b) => parseMatchDateTime(a.starting_at) - parseMatchDateTime(b.starting_at));
 
     return fixtures.slice(0, 20).map((fixture) => this.mapFixtureSummary(fixture, this.worldCupName));
   }
@@ -237,7 +238,7 @@ export class SportMonksMatchProvider implements MatchProvider {
     const cachedFixture = this.getCachedFixture(`/fixtures/${encodeURIComponent(matchId)}`, {
       include: this.preMatchFixtureIncludes,
     });
-    const startsAt = Date.parse(cachedFixture?.starting_at ?? '');
+    const startsAt = parseMatchDateTime(cachedFixture?.starting_at);
     if (!Number.isFinite(startsAt)) return SPORTMONKS_PREMATCH_NEAR_CACHE_MS;
 
     const msUntilKickoff = startsAt - Date.now();
@@ -308,7 +309,7 @@ export class SportMonksMatchProvider implements MatchProvider {
       id: String(fixture.id),
       homeTeam: home?.name ?? 'Home',
       awayTeam: away?.name ?? 'Away',
-      date: fixture.starting_at ?? new Date().toISOString(),
+      date: toMatchDateTimeIso(fixture.starting_at) ?? new Date().toISOString(),
       league: fixture.league?.name ?? fallbackLeagueName,
     };
   }
@@ -355,8 +356,8 @@ export class SportMonksMatchProvider implements MatchProvider {
       matchMinute: getFixtureMinute(fixture),
       homeTeam: home?.name ?? 'Home',
       awayTeam: away?.name ?? 'Away',
-      startsAt: fixture.starting_at,
-      lockAt: fixture.starting_at,
+      startsAt: toMatchDateTimeIso(fixture.starting_at),
+      lockAt: toMatchDateTimeIso(fixture.starting_at),
       playerStats,
     };
   }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Calendar, ChevronRight, Shield, Flame } from 'lucide-react';
+import { toMatchDate } from '../dateTime';
 
 interface Match {
   id: string;
@@ -60,7 +61,7 @@ export default function Dashboard() {
         ) : (
           <div className="grid gap-4 md:gap-6">
             {matches.map((match, idx) => {
-              const dateObj = new Date(match.date);
+              const dateObj = toMatchDate(match.date) ?? new Date(match.date);
               return (
                 <motion.div
                   key={match.id}
