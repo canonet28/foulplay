@@ -78,6 +78,8 @@ World Cup mode uses the SportMonks season schedule endpoint:
 
 It flattens the schedule's stages and rounds into fixtures, filters to upcoming matches, and optionally filters by `SPORTMONKS_WORLD_CUP_LEAGUE_ID`.
 
+The fixtures list shows matches from the next 48 hours, plus a 6-hour grace window for recently-started fixtures.
+
 SportMonks responses are cached in memory per server instance with endpoint-aware TTLs:
 
 ```txt

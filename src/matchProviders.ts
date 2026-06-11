@@ -23,6 +23,8 @@ const SPORTMONKS_PREMATCH_FAR_CACHE_MS = 15 * 60_000;
 const SPORTMONKS_PREMATCH_NEAR_CACHE_MS = 60_000;
 const SPORTMONKS_PREMATCH_CLOSE_CACHE_MS = 15_000;
 const SPORTMONKS_WORLD_CUP_SQUAD_CACHE_MS = 24 * 60 * 60_000;
+const UPCOMING_FIXTURE_WINDOW_MS = 48 * 60 * 60_000;
+const RECENT_FIXTURE_GRACE_MS = 6 * 60 * 60_000;
 
 const initialPlayers: PlayerStats[] = [
   { id: 'p1', name: 'R. Keane', team: 'Millwall', position: 'MID', fouls: 0, yellowCards: [], redCards: [], score: 0 },
@@ -151,7 +153,7 @@ export class SportMonksMatchProvider implements MatchProvider {
       order: 'asc',
     }, SPORTMONKS_FIXTURE_LIST_CACHE_MS);
 
-    return asArray(data.data).slice(0, 20).map((fixture) => this.mapFixtureSummary(fixture));
+    return filterUpcomingWindow(asArray(data.data)).map((fixture) => this.mapFixtureSummary(fixture));
   }
 
   async getMatchSync(matchId: string): Promise<MatchSyncResponse> {
@@ -182,14 +184,14 @@ export class SportMonksMatchProvider implements MatchProvider {
   private async getFixturesBetween() {
     const startDate = formatDate(new Date());
     const end = new Date();
-    end.setDate(end.getDate() + 7);
+    end.setDate(end.getDate() + 2);
     const endDate = formatDate(end);
     const data = await this.request(`/fixtures/between/${startDate}/${endDate}`, {
       include: 'participants;league;state',
       order: 'asc',
     }, SPORTMONKS_FIXTURE_LIST_CACHE_MS);
 
-    return asArray(data.data).slice(0, 20).map((fixture) => this.mapFixtureSummary(fixture));
+    return filterUpcomingWindow(asArray(data.data)).map((fixture) => this.mapFixtureSummary(fixture));
   }
 
   private async getWorldCupFixtures() {
@@ -202,16 +204,11 @@ export class SportMonksMatchProvider implements MatchProvider {
       {},
       SPORTMONKS_WORLD_CUP_SCHEDULE_CACHE_MS,
     );
-    const cutoff = Date.now() - 6 * 60 * 60_000;
     const fixtures = collectScheduleFixtures(data.data)
       .filter((fixture) => !this.worldCupLeagueId || String(fixture.league_id) === String(this.worldCupLeagueId))
-      .filter((fixture) => {
-        const startingAt = parseMatchDateTime(fixture.starting_at);
-        return Number.isFinite(startingAt) && startingAt >= cutoff;
-      })
-      .sort((a, b) => parseMatchDateTime(a.starting_at) - parseMatchDateTime(b.starting_at));
+      .filter((fixture) => isInUpcomingFixtureWindow(fixture));
 
-    return fixtures.slice(0, 20).map((fixture) => this.mapFixtureSummary(fixture, this.worldCupName));
+    return sortFixturesByStartTime(fixtures).map((fixture) => this.mapFixtureSummary(fixture, this.worldCupName));
   }
 
   private async request(endpoint: string, params: Record<string, string>, cacheTtlMs = SPORTMONKS_FIXTURE_DETAIL_CACHE_MS) {
@@ -435,6 +432,22 @@ function collectScheduleFixtures(scheduleData: unknown) {
   }
 
   return fixtures;
+}
+
+function isInUpcomingFixtureWindow(fixture: any) {
+  const startingAt = parseMatchDateTime(fixture.starting_at);
+  if (!Number.isFinite(startingAt)) return false;
+
+  const now = Date.now();
+  return startingAt >= now - RECENT_FIXTURE_GRACE_MS && startingAt <= now + UPCOMING_FIXTURE_WINDOW_MS;
+}
+
+function sortFixturesByStartTime(fixtures: any[]) {
+  return [...fixtures].sort((a, b) => parseMatchDateTime(a.starting_at) - parseMatchDateTime(b.starting_at));
+}
+
+function filterUpcomingWindow(fixtures: any[]) {
+  return sortFixturesByStartTime(fixtures.filter((fixture) => isInUpcomingFixtureWindow(fixture)));
 }
 
 function extractSquadEntries(squadData: unknown): any[] {
