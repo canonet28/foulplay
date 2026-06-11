@@ -8,6 +8,10 @@ interface Match {
   id: string;
   homeTeam: string;
   awayTeam: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
+  homeTeamFlag?: string;
+  awayTeamFlag?: string;
   date: string;
   league: string;
 }
@@ -87,10 +91,16 @@ export default function Dashboard() {
                            <span className="px-2 py-1 bg-slate-100 rounded-md text-slate-600 max-w-full truncate">{match.league}</span>
                            <span className="flex items-center gap-1.5"><Calendar size={12}/> {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} at {dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute:'2-digit' })}</span>
                          </div>
-                         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4 text-lg md:text-2xl font-black text-slate-900 tracking-tight">
-                            <span className="text-right break-words leading-tight">{match.homeTeam}</span>
+                         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 md:gap-4 text-lg md:text-2xl font-black text-slate-900 tracking-tight">
+                            <span className="flex min-w-0 items-center justify-end gap-2 text-right leading-tight">
+                              <span className="min-w-0 break-words">{match.homeTeam}</span>
+                              <TeamMark logo={match.homeTeamLogo} flag={match.homeTeamFlag} name={match.homeTeam} />
+                            </span>
                             <span className="text-slate-300 font-mono text-xs md:text-sm px-1 md:px-2">VS</span>
-                            <span className="text-left break-words leading-tight">{match.awayTeam}</span>
+                            <span className="flex min-w-0 items-center justify-start gap-2 text-left leading-tight">
+                              <TeamMark logo={match.awayTeamLogo} flag={match.awayTeamFlag} name={match.awayTeam} />
+                              <span className="min-w-0 break-words">{match.awayTeam}</span>
+                            </span>
                          </div>
                       </div>
                       <div className="shrink-0 flex justify-center">
@@ -179,4 +189,31 @@ export default function Dashboard() {
       </AnimatePresence>
     </div>
   );
+}
+
+function TeamMark({ logo, flag, name }: { logo?: string; flag?: string; name: string }) {
+  if (logo) {
+    return (
+      <img
+        src={logo}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        className="h-5 w-5 shrink-0 rounded-full bg-slate-100 object-contain p-0.5 ring-1 ring-slate-200 md:h-6 md:w-6"
+        onError={(event) => {
+          event.currentTarget.style.display = 'none';
+        }}
+      />
+    );
+  }
+
+  if (flag) {
+    return (
+      <span className="shrink-0 text-base leading-none md:text-lg" aria-label={`${name} flag`} role="img">
+        {flag}
+      </span>
+    );
+  }
+
+  return null;
 }

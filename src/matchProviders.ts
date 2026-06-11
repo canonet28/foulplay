@@ -6,6 +6,10 @@ export interface MatchSummary {
   id: string;
   homeTeam: string;
   awayTeam: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
+  homeTeamFlag?: string;
+  awayTeamFlag?: string;
   date: string;
   league: string;
 }
@@ -306,6 +310,10 @@ export class SportMonksMatchProvider implements MatchProvider {
       id: String(fixture.id),
       homeTeam: home?.name ?? 'Home',
       awayTeam: away?.name ?? 'Away',
+      homeTeamLogo: getTeamLogo(home),
+      awayTeamLogo: getTeamLogo(away),
+      homeTeamFlag: getTeamFlag(home),
+      awayTeamFlag: getTeamFlag(away),
       date: toMatchDateTimeIso(fixture.starting_at) ?? new Date().toISOString(),
       league: fixture.league?.name ?? fallbackLeagueName,
     };
@@ -475,6 +483,95 @@ function getParticipants(fixture: any) {
     participants[1];
   return { home, away };
 }
+
+function getTeamLogo(team: any) {
+  const logo = team?.image_path ?? team?.image ?? team?.logo_path ?? team?.logo ?? team?.country?.image_path;
+  return typeof logo === 'string' && logo.startsWith('http') ? logo : undefined;
+}
+
+function getTeamFlag(team: any) {
+  const countryCode =
+    team?.country?.iso2 ??
+    team?.country?.code ??
+    team?.country_code ??
+    COUNTRY_FLAG_CODES[normalizeTeamName(team?.name)];
+  return typeof countryCode === 'string' && /^[a-z]{2}$/i.test(countryCode)
+    ? countryCodeToFlag(countryCode)
+    : undefined;
+}
+
+function normalizeTeamName(name: unknown) {
+  return String(name ?? '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function countryCodeToFlag(code: string) {
+  return code
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
+}
+
+const COUNTRY_FLAG_CODES: Record<string, string> = {
+  algeria: 'DZ',
+  argentina: 'AR',
+  australia: 'AU',
+  austria: 'AT',
+  belgium: 'BE',
+  bolivia: 'BO',
+  brazil: 'BR',
+  cameroon: 'CM',
+  canada: 'CA',
+  chile: 'CL',
+  colombia: 'CO',
+  'costa rica': 'CR',
+  croatia: 'HR',
+  denmark: 'DK',
+  ecuador: 'EC',
+  egypt: 'EG',
+  england: 'GB',
+  france: 'FR',
+  germany: 'DE',
+  ghana: 'GH',
+  iran: 'IR',
+  italy: 'IT',
+  'ivory coast': 'CI',
+  jamaica: 'JM',
+  japan: 'JP',
+  jordan: 'JO',
+  'korea republic': 'KR',
+  mexico: 'MX',
+  morocco: 'MA',
+  netherlands: 'NL',
+  'new zealand': 'NZ',
+  nigeria: 'NG',
+  panama: 'PA',
+  paraguay: 'PY',
+  peru: 'PE',
+  poland: 'PL',
+  portugal: 'PT',
+  qatar: 'QA',
+  'saudi arabia': 'SA',
+  scotland: 'GB',
+  senegal: 'SN',
+  serbia: 'RS',
+  'south africa': 'ZA',
+  'south korea': 'KR',
+  spain: 'ES',
+  switzerland: 'CH',
+  tunisia: 'TN',
+  turkey: 'TR',
+  ukraine: 'UA',
+  'united arab emirates': 'AE',
+  'united states': 'US',
+  uruguay: 'UY',
+  usa: 'US',
+  uzbekistan: 'UZ',
+  venezuela: 'VE',
+  wales: 'GB',
+};
 
 function resolveTeamName(teamId: unknown, home: any, away: any, fallback?: string) {
   const normalizedTeamId = String(teamId ?? '');
