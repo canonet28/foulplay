@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-labelledby="title">
+  <title id="title">Buy Me a Coffee</title>
+  <rect width="200" height="200" fill="#ffd900"/>
+  <g fill="none" stroke="#0b1026" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M59 79.5c2.4 27.8 5.1 55.7 7.7 83.5 1.4 15 12.4 23 27.1 23h23.8c14.7 0 25.7-8 27.1-23 2.6-27.8 5.3-55.7 7.7-83.5" fill="#fff" stroke-width="8"/>
+    <path d="M57.5 75c23.7 13 71.3 13 95 0" stroke="#ffd900" stroke-width="18"/>
+    <path d="M45 49c35.3 7 74.7 7 110 0l3.6 17.2c.8 4-1.7 7.9-5.7 8.8-31.7 6.6-72.1 6.6-103.8 0-4-.9-6.5-4.8-5.7-8.8L45 49Z" fill="#ffd900" stroke-width="8"/>
+    <path d="M63 25.8c22.5-5.8 52.5-5.8 75 0l4.4 19.7c-27.5 5.9-56.4 5.9-83.8 0L63 25.8Z" fill="#ffd900" stroke-width="8"/>
+    <path d="M70.5 28.8c18.4-3.4 41.6-3.4 60 0" stroke-width="8"/>
+  </g>
+</svg>

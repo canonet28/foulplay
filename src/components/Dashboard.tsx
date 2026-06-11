@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, Calendar, ChevronRight, HelpCircle, Shield, Trophy, X } from 'lucide-react';
 import { toMatchDate } from '../dateTime';
 
+const SHOW_SUPPORT_LINK = false;
+
 interface Match {
   id: string;
   homeTeam: string;
@@ -35,7 +37,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 font-sans">
       <header className="sticky top-0 z-20 px-4 py-4 md:px-10 md:py-6 flex items-center justify-between bg-white/70 backdrop-blur-2xl border-b border-black/[0.03]">
         <div className="flex items-center gap-3 md:gap-4 min-w-0">
           <div className="w-9 h-9 md:w-10 md:h-10 bg-slate-950 flex items-center justify-center rounded-xl font-black text-lg md:text-xl shadow-sm shrink-0 ring-1 ring-black/5">
@@ -50,17 +52,30 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowRules(true)}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
-          aria-label="How to play"
-        >
-          <HelpCircle size={20} />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowRules(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:bg-slate-50 hover:text-slate-900 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
+            aria-label="How to play"
+          >
+            <HelpCircle size={20} />
+          </button>
+          {SHOW_SUPPORT_LINK && (
+            <a
+              href="https://buymeacoffee.com/dialupdecibels"
+              target="_blank"
+              rel="noreferrer"
+              className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-yellow-300 shadow-sm ring-1 ring-black/5 transition-transform hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
+              aria-label="Support foulPLAY on Buy Me a Coffee"
+            >
+              <img src="/buy-me-a-coffee.svg" alt="" aria-hidden="true" className="h-full w-full object-cover" />
+            </a>
+          )}
+        </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 md:px-6 md:py-12">
+      <main className="mx-auto max-w-4xl px-4 py-8 md:px-6 md:py-12">
         <div className="mb-8 md:mb-12 text-center md:text-left">
           <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter mb-3 md:mb-4">
              UPCOMING FIXTURES
@@ -85,11 +100,16 @@ export default function Dashboard() {
                     to={`/match/${match.id}`} 
                     className="group block bg-white rounded-3xl md:rounded-[2rem] p-4 md:p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:border-slate-200 transition-all hover:-translate-y-1"
                   >
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-                      <div className="flex-1 space-y-2">
-                         <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400">
-                           <span className="px-2 py-1 bg-slate-100 rounded-md text-slate-600 max-w-full truncate">{match.league}</span>
-                           <span className="flex items-center gap-1.5"><Calendar size={12}/> {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} at {dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute:'2-digit' })}</span>
+                    <div className="flex min-w-0 flex-col justify-between gap-4 md:flex-row md:items-center md:gap-6">
+                      <div className="min-w-0 flex-1 space-y-2">
+                         <div className="flex min-w-0 flex-wrap items-center gap-2 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400">
+                           <span className="max-w-full truncate rounded-md bg-slate-100 px-2 py-1 text-slate-600">{match.league}</span>
+                           <span className="flex min-w-0 items-center gap-1.5 leading-tight">
+                            <Calendar size={12} className="shrink-0"/>
+                            <span className="min-w-0 break-words">
+                              {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} at {dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute:'2-digit' })}
+                            </span>
+                          </span>
                          </div>
                          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 md:gap-4 text-lg md:text-2xl font-black text-slate-900 tracking-tight">
                             <span className="flex min-w-0 items-center justify-end gap-2 text-right leading-tight">
