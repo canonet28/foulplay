@@ -68,6 +68,10 @@ async function startServer() {
     matchId: match.matchId,
     homeTeam: match.homeTeam,
     awayTeam: match.awayTeam,
+    homeTeamLogo: match.homeTeamLogo,
+    awayTeamLogo: match.awayTeamLogo,
+    homeTeamFlag: match.homeTeamFlag,
+    awayTeamFlag: match.awayTeamFlag,
     startsAt: match.startsAt,
     lockAt: match.lockAt,
   });

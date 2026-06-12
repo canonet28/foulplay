@@ -17,6 +17,10 @@ export interface MatchSyncResponse {
   matchMinute: number;
   homeTeam: string;
   awayTeam: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
+  homeTeamFlag?: string;
+  awayTeamFlag?: string;
   startsAt?: string;
   lockAt?: string;
   playerStats: PlayerStats[];
@@ -26,6 +30,10 @@ export interface MatchMetadata {
   matchId: string;
   homeTeam: string;
   awayTeam: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
+  homeTeamFlag?: string;
+  awayTeamFlag?: string;
   startsAt?: string;
   lockAt?: string;
 }

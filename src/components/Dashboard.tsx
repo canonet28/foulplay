@@ -19,6 +19,20 @@ interface Match {
   league: string;
 }
 
+interface FixtureCardProps {
+  to: string;
+  metaLabel: string;
+  date?: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
+  homeTeamFlag?: string;
+  awayTeamFlag?: string;
+  scoreLabel?: string;
+  delay?: number;
+}
+
 function createLocalUserId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -114,49 +128,20 @@ export default function Dashboard() {
         ) : (
           <div className="grid gap-4 md:gap-6">
             {matches.map((match, idx) => {
-              const dateObj = toMatchDate(match.date) ?? new Date(match.date);
               return (
-                <motion.div
+                <FixtureCard
                   key={match.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                >
-                  <Link 
-                    to={`/match/${match.id}`} 
-                    className="group block bg-white rounded-3xl md:rounded-[2rem] p-4 md:p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:border-slate-200 transition-all hover:-translate-y-1"
-                  >
-                    <div className="flex min-w-0 flex-col justify-between gap-4 md:flex-row md:items-center md:gap-6">
-                      <div className="min-w-0 flex-1 space-y-2">
-                         <div className="flex min-w-0 flex-wrap items-center gap-2 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400">
-                           <span className="max-w-full truncate rounded-md bg-slate-100 px-2 py-1 text-slate-600">{match.league}</span>
-                           <span className="flex min-w-0 items-center gap-1.5 leading-tight">
-                            <Calendar size={12} className="shrink-0"/>
-                            <span className="min-w-0 break-words">
-                              {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} at {dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute:'2-digit' })}
-                            </span>
-                          </span>
-                         </div>
-                         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 md:gap-4 text-lg md:text-2xl font-black text-slate-900 tracking-tight">
-                            <span className="flex min-w-0 items-center justify-end gap-2 text-right leading-tight">
-                              <span className="min-w-0 break-words">{match.homeTeam}</span>
-                              <TeamMark logo={match.homeTeamLogo} flag={match.homeTeamFlag} name={match.homeTeam} />
-                            </span>
-                            <span className="text-slate-300 font-mono text-xs md:text-sm px-1 md:px-2">VS</span>
-                            <span className="flex min-w-0 items-center justify-start gap-2 text-left leading-tight">
-                              <TeamMark logo={match.awayTeamLogo} flag={match.awayTeamFlag} name={match.awayTeam} />
-                              <span className="min-w-0 break-words">{match.awayTeam}</span>
-                            </span>
-                         </div>
-                      </div>
-                      <div className="shrink-0 flex justify-center">
-                         <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-slate-900 group-hover:text-white transition-colors">
-                           <ChevronRight size={24} strokeWidth={2.5}/>
-                         </div>
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
+                  to={`/match/${match.id}`}
+                  metaLabel={match.league}
+                  date={match.date}
+                  homeTeam={match.homeTeam}
+                  awayTeam={match.awayTeam}
+                  homeTeamLogo={match.homeTeamLogo}
+                  awayTeamLogo={match.awayTeamLogo}
+                  homeTeamFlag={match.homeTeamFlag}
+                  awayTeamFlag={match.awayTeamFlag}
+                  delay={idx * 0.1}
+                />
               );
             })}
           </div>
@@ -169,39 +154,28 @@ export default function Dashboard() {
               <p className="mt-2 text-sm font-medium text-slate-500">Your locked entries stay here after fixtures leave the upcoming list.</p>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              {recentMatches.map(entry => {
+            <div className="grid gap-4 md:gap-6">
+              {recentMatches.map((entry, idx) => {
                 const match = entry.match;
-                const startDate = toMatchDate(match?.startsAt) ?? null;
-                const title = match ? `${match.homeTeam} vs ${match.awayTeam}` : `Match ${entry.matchId}`;
                 const url = `/match/${entry.matchId}?lobby=${encodeURIComponent(entry.lobbyId)}`;
+                const scoreLabel = entry.finalSnapshot
+                  ? `${entry.finalSnapshot.totalScore > 0 ? '+' : ''}${entry.finalSnapshot.totalScore} PTS`
+                  : undefined;
                 return (
-                  <Link
+                  <FixtureCard
                     key={entry.entryId}
                     to={url}
-                    className="group flex min-w-0 items-center justify-between gap-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-lg"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">
-                        <span>{entry.finalSnapshot ? 'Final' : 'Locked'}</span>
-                        {entry.finalSnapshot && (
-                          <>
-                            <span className="text-slate-300">/</span>
-                            <span className={entry.finalSnapshot.totalScore < 0 ? 'text-red-500' : 'text-slate-900'}>
-                              {entry.finalSnapshot.totalScore > 0 ? '+' : ''}{entry.finalSnapshot.totalScore} pts
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      <div className="mt-1 truncate text-base font-black tracking-tight text-slate-950">{title}</div>
-                      <div className="mt-1 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
-                        {startDate ? startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Locked'} / {entry.displayName}
-                      </div>
-                    </div>
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-colors group-hover:bg-slate-950 group-hover:text-white">
-                      <ChevronRight size={20} strokeWidth={2.5} />
-                    </div>
-                  </Link>
+                    metaLabel={entry.finalSnapshot ? 'Final' : 'Locked'}
+                    date={match?.startsAt ?? entry.lockedAt}
+                    homeTeam={match?.homeTeam ?? `Match ${entry.matchId}`}
+                    awayTeam={match?.awayTeam ?? entry.displayName}
+                    homeTeamLogo={match?.homeTeamLogo}
+                    awayTeamLogo={match?.awayTeamLogo}
+                    homeTeamFlag={match?.homeTeamFlag}
+                    awayTeamFlag={match?.awayTeamFlag}
+                    scoreLabel={scoreLabel}
+                    delay={idx * 0.06}
+                  />
                 );
               })}
             </div>
@@ -283,6 +257,72 @@ export default function Dashboard() {
   );
 }
 
+function FixtureCard({
+  to,
+  metaLabel,
+  date,
+  homeTeam,
+  awayTeam,
+  homeTeamLogo,
+  awayTeamLogo,
+  homeTeamFlag,
+  awayTeamFlag,
+  scoreLabel,
+  delay = 0,
+}: FixtureCardProps) {
+  const dateObj = date ? toMatchDate(date) ?? new Date(date) : null;
+  const homeFlag = homeTeamFlag ?? getFallbackFlag(homeTeam);
+  const awayFlag = awayTeamFlag ?? getFallbackFlag(awayTeam);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+    >
+      <Link
+        to={to}
+        className="group block rounded-3xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-1 hover:border-slate-200 hover:shadow-xl md:rounded-[2rem] md:p-6"
+      >
+        <div className="flex min-w-0 flex-col justify-between gap-4 md:flex-row md:items-center md:gap-6">
+          <div className="min-w-0 flex-1 space-y-2">
+             <div className="flex min-w-0 flex-wrap items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
+               <span className="max-w-full truncate rounded-md bg-slate-100 px-2 py-1 text-slate-600">{metaLabel}</span>
+               {scoreLabel && (
+                <span className="rounded-md bg-slate-950 px-2 py-1 text-white">{scoreLabel}</span>
+               )}
+               {dateObj && (
+                 <span className="flex min-w-0 items-center gap-1.5 leading-tight">
+                  <Calendar size={12} className="shrink-0"/>
+                  <span className="min-w-0 break-words">
+                    {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} at {dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute:'2-digit' })}
+                  </span>
+                </span>
+               )}
+             </div>
+             <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-lg font-black tracking-tight text-slate-900 md:gap-4 md:text-2xl">
+                <span className="flex min-w-0 items-center justify-end gap-2 text-right leading-tight">
+                  <span className="min-w-0 break-words">{homeTeam}</span>
+                  <TeamMark logo={homeTeamLogo} flag={homeFlag} name={homeTeam} />
+                </span>
+                <span className="px-1 font-mono text-xs text-slate-300 md:px-2 md:text-sm">VS</span>
+                <span className="flex min-w-0 items-center justify-start gap-2 text-left leading-tight">
+                  <TeamMark logo={awayTeamLogo} flag={awayFlag} name={awayTeam} />
+                  <span className="min-w-0 break-words">{awayTeam}</span>
+                </span>
+             </div>
+          </div>
+          <div className="flex shrink-0 justify-center">
+             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-colors group-hover:bg-slate-900 group-hover:text-white">
+               <ChevronRight size={24} strokeWidth={2.5}/>
+             </div>
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  );
+}
+
 function TeamMark({ logo, flag, name }: { logo?: string; flag?: string; name: string }) {
   if (logo) {
     return (
@@ -309,3 +349,81 @@ function TeamMark({ logo, flag, name }: { logo?: string; flag?: string; name: st
 
   return null;
 }
+
+function getFallbackFlag(teamName: string) {
+  const code = COUNTRY_FLAG_CODES[normalizeTeamName(teamName)];
+  return code ? countryCodeToFlag(code) : undefined;
+}
+
+function normalizeTeamName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function countryCodeToFlag(code: string) {
+  return code
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
+}
+
+const COUNTRY_FLAG_CODES: Record<string, string> = {
+  algeria: 'DZ',
+  argentina: 'AR',
+  australia: 'AU',
+  austria: 'AT',
+  belgium: 'BE',
+  bolivia: 'BO',
+  brazil: 'BR',
+  cameroon: 'CM',
+  canada: 'CA',
+  chile: 'CL',
+  colombia: 'CO',
+  'costa rica': 'CR',
+  croatia: 'HR',
+  denmark: 'DK',
+  ecuador: 'EC',
+  egypt: 'EG',
+  england: 'GB',
+  france: 'FR',
+  germany: 'DE',
+  ghana: 'GH',
+  iran: 'IR',
+  italy: 'IT',
+  'ivory coast': 'CI',
+  jamaica: 'JM',
+  japan: 'JP',
+  jordan: 'JO',
+  'korea republic': 'KR',
+  mexico: 'MX',
+  morocco: 'MA',
+  netherlands: 'NL',
+  'new zealand': 'NZ',
+  nigeria: 'NG',
+  panama: 'PA',
+  paraguay: 'PY',
+  peru: 'PE',
+  poland: 'PL',
+  portugal: 'PT',
+  qatar: 'QA',
+  'saudi arabia': 'SA',
+  scotland: 'GB',
+  senegal: 'SN',
+  serbia: 'RS',
+  'south africa': 'ZA',
+  'south korea': 'KR',
+  spain: 'ES',
+  switzerland: 'CH',
+  tunisia: 'TN',
+  turkey: 'TR',
+  ukraine: 'UA',
+  'united arab emirates': 'AE',
+  'united states': 'US',
+  uruguay: 'UY',
+  usa: 'US',
+  uzbekistan: 'UZ',
+  venezuela: 'VE',
+  wales: 'GB',
+};
