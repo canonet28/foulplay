@@ -1,15 +1,18 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import pg from 'pg';
-import type { LockedSelectedPlayers } from './types';
+import type { FinalEntrySnapshot, LockedSelectedPlayers, MatchMetadata } from './types';
 
 export interface LobbyEntry {
   entryId: string;
+  lobbyId?: string;
   userId: string;
   displayName: string;
   matchId: string;
   selectedPlayers: LockedSelectedPlayers;
   lockedAt: string;
+  matchMetadata?: MatchMetadata;
+  finalSnapshot?: FinalEntrySnapshot;
 }
 
 interface LobbyStoreData {
@@ -20,6 +23,7 @@ export interface LobbyStore {
   load(): Promise<void>;
   getEntries(lobbyId: string): Promise<LobbyEntry[]>;
   getAllEntries(): Promise<LobbyEntry[]>;
+  getEntriesForUser(userId: string): Promise<LobbyEntry[]>;
   upsertEntry(lobbyId: string, entry: LobbyEntry): Promise<{ entry: LobbyEntry; created: boolean }>;
 }
 
@@ -41,11 +45,17 @@ export class FileLobbyStore implements LobbyStore {
   }
 
   async getEntries(lobbyId: string) {
-    return this.data.lobbies[lobbyId] ?? [];
+    return (this.data.lobbies[lobbyId] ?? []).map((entry) => ({ ...entry, lobbyId }));
   }
 
   async getAllEntries() {
-    return Object.values(this.data.lobbies).flat();
+    return Object.entries(this.data.lobbies).flatMap(([lobbyId, entries]) =>
+      entries.map((entry) => ({ ...entry, lobbyId })),
+    );
+  }
+
+  async getEntriesForUser(userId: string) {
+    return (await this.getAllEntries()).filter((entry) => entry.userId === userId);
   }
 
   async upsertEntry(lobbyId: string, entry: LobbyEntry) {
@@ -55,9 +65,9 @@ export class FileLobbyStore implements LobbyStore {
     );
 
     if (existingIndex >= 0) {
-      entries[existingIndex] = entry;
+      entries[existingIndex] = { ...entry, lobbyId };
     } else {
-      entries.push(entry);
+      entries.push({ ...entry, lobbyId });
     }
 
     this.data.lobbies[lobbyId] = entries;
@@ -91,9 +101,13 @@ export class PostgresLobbyStore implements LobbyStore {
         match_id TEXT NOT NULL,
         selected_players JSONB NOT NULL,
         locked_at TIMESTAMPTZ NOT NULL,
+        match_metadata JSONB,
+        final_snapshot JSONB,
         UNIQUE (lobby_id, user_id, match_id)
       )
     `);
+    await this.pool.query(`ALTER TABLE lobby_entries ADD COLUMN IF NOT EXISTS match_metadata JSONB`);
+    await this.pool.query(`ALTER TABLE lobby_entries ADD COLUMN IF NOT EXISTS final_snapshot JSONB`);
     await this.pool.query(`
       CREATE INDEX IF NOT EXISTS lobby_entries_lobby_match_idx
         ON lobby_entries (lobby_id, match_id)
@@ -117,6 +131,14 @@ export class PostgresLobbyStore implements LobbyStore {
     return result.rows.map(rowToLobbyEntry);
   }
 
+  async getEntriesForUser(userId: string) {
+    const result = await this.pool.query(
+      `SELECT * FROM lobby_entries WHERE user_id = $1 ORDER BY locked_at DESC`,
+      [userId],
+    );
+    return result.rows.map(rowToLobbyEntry);
+  }
+
   async upsertEntry(lobbyId: string, entry: LobbyEntry) {
     const result = await this.pool.query(
       `
@@ -127,13 +149,17 @@ export class PostgresLobbyStore implements LobbyStore {
           display_name,
           match_id,
           selected_players,
-          locked_at
+          locked_at,
+          match_metadata,
+          final_snapshot
         )
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::jsonb, $9::jsonb)
         ON CONFLICT (lobby_id, user_id, match_id)
         DO UPDATE SET
           display_name = EXCLUDED.display_name,
-          selected_players = EXCLUDED.selected_players
+          selected_players = EXCLUDED.selected_players,
+          match_metadata = COALESCE(EXCLUDED.match_metadata, lobby_entries.match_metadata),
+          final_snapshot = COALESCE(EXCLUDED.final_snapshot, lobby_entries.final_snapshot)
         RETURNING (xmax = 0) AS created
       `,
       [
@@ -144,6 +170,8 @@ export class PostgresLobbyStore implements LobbyStore {
         entry.matchId,
         JSON.stringify(entry.selectedPlayers),
         entry.lockedAt,
+        entry.matchMetadata ? JSON.stringify(entry.matchMetadata) : null,
+        entry.finalSnapshot ? JSON.stringify(entry.finalSnapshot) : null,
       ],
     );
 
@@ -154,10 +182,13 @@ export class PostgresLobbyStore implements LobbyStore {
 function rowToLobbyEntry(row: any): LobbyEntry {
   return {
     entryId: row.entry_id,
+    lobbyId: row.lobby_id,
     userId: row.user_id,
     displayName: row.display_name,
     matchId: row.match_id,
     selectedPlayers: row.selected_players,
     lockedAt: new Date(row.locked_at).toISOString(),
+    matchMetadata: row.match_metadata ?? undefined,
+    finalSnapshot: row.final_snapshot ?? undefined,
   };
 }

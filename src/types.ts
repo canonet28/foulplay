@@ -22,6 +22,14 @@ export interface MatchSyncResponse {
   playerStats: PlayerStats[];
 }
 
+export interface MatchMetadata {
+  matchId: string;
+  homeTeam: string;
+  awayTeam: string;
+  startsAt?: string;
+  lockAt?: string;
+}
+
 export type SlotRole = "Hitman" | "HotHead" | "LooseCannon";
 
 export interface SelectedPlayers {
@@ -44,6 +52,22 @@ export interface ScoreBreakdown {
   total: number;
 }
 
+export interface FinalPlayerSnapshot {
+  role: SlotRole;
+  player: PlayerStats;
+  score: number;
+  breakdown: ScoreBreakdown;
+}
+
+export interface FinalEntrySnapshot {
+  capturedAt: string;
+  matchStatus: "FT";
+  matchMinute: number;
+  match: MatchMetadata;
+  totalScore: number;
+  selectedPlayers: FinalPlayerSnapshot[];
+}
+
 export interface LeaderboardEntry {
   rank: number;
   entryId: string;
@@ -53,6 +77,7 @@ export interface LeaderboardEntry {
   selectedPlayers: LockedSelectedPlayers;
   lockedAt: string;
   isCurrentUser?: boolean;
+  finalSnapshot?: FinalEntrySnapshot;
 }
 
 export interface LeaderboardResponse {
@@ -61,4 +86,15 @@ export interface LeaderboardResponse {
   matchStatus: MatchStatus;
   matchMinute: number;
   entries: LeaderboardEntry[];
+}
+
+export interface RecentMatchEntry {
+  entryId: string;
+  lobbyId: string;
+  matchId: string;
+  displayName: string;
+  selectedPlayers: LockedSelectedPlayers;
+  lockedAt: string;
+  match: MatchMetadata | null;
+  finalSnapshot?: FinalEntrySnapshot;
 }

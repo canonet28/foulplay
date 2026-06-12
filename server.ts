@@ -4,9 +4,18 @@ import { config as loadEnv } from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { FileLobbyStore, PostgresLobbyStore, type LobbyEntry, type LobbyStore } from "./src/lobbyStore";
 import { HybridMatchProvider, MockMatchProvider, SportMonksMatchProvider, type MatchProvider } from "./src/matchProviders";
-import { calculatePlayerScore } from "./src/scoring";
+import { calculatePlayerScore, getScoreBreakdown } from "./src/scoring";
 import { parseMatchDateTime } from "./src/dateTime";
-import type { LeaderboardEntry, LockedSelectedPlayers, PlayerStats, SlotRole } from "./src/types";
+import type {
+  FinalEntrySnapshot,
+  LeaderboardEntry,
+  LockedSelectedPlayers,
+  MatchMetadata,
+  MatchSyncResponse,
+  PlayerStats,
+  RecentMatchEntry,
+  SlotRole,
+} from "./src/types";
 
 loadEnv({ path: ".env.local" });
 loadEnv();
@@ -45,10 +54,63 @@ async function startServer() {
   };
 
   const calculateEntryScore = (entry: LobbyEntry, players: PlayerStats[], isFT: boolean) => {
+    if (isFT && entry.finalSnapshot) {
+      return entry.finalSnapshot.totalScore;
+    }
+
     return slotRoles.reduce((total, role) => {
       const player = players.find((candidate) => candidate.id === entry.selectedPlayers[role]);
       return total + calculatePlayerScore(player, role, isFT);
     }, 0);
+  };
+
+  const getMatchMetadata = (match: MatchSyncResponse): MatchMetadata => ({
+    matchId: match.matchId,
+    homeTeam: match.homeTeam,
+    awayTeam: match.awayTeam,
+    startsAt: match.startsAt,
+    lockAt: match.lockAt,
+  });
+
+  const createFinalSnapshot = (entry: LobbyEntry, match: MatchSyncResponse): FinalEntrySnapshot => {
+    const selectedPlayers = slotRoles.map((role) => {
+      const player =
+        match.playerStats.find((candidate) => candidate.id === entry.selectedPlayers[role]) ??
+        createMissingPlayer(entry.selectedPlayers[role], role);
+      const breakdown = getScoreBreakdown(player, role, true);
+      return {
+        role,
+        player,
+        score: breakdown.total,
+        breakdown,
+      };
+    });
+
+    return {
+      capturedAt: new Date().toISOString(),
+      matchStatus: "FT",
+      matchMinute: match.matchMinute,
+      match: entry.matchMetadata ?? getMatchMetadata(match),
+      totalScore: selectedPlayers.reduce((total, player) => total + player.score, 0),
+      selectedPlayers,
+    };
+  };
+
+  const ensureFinalSnapshots = async (entries: LobbyEntry[], match: MatchSyncResponse) => {
+    if (match.matchStatus !== "FT") return entries;
+
+    const updatedEntries = await Promise.all(entries.map(async (entry) => {
+      if (entry.finalSnapshot || !entry.lobbyId) return entry;
+      const updatedEntry: LobbyEntry = {
+        ...entry,
+        matchMetadata: entry.matchMetadata ?? getMatchMetadata(match),
+        finalSnapshot: createFinalSnapshot(entry, match),
+      };
+      await lobbyStore.upsertEntry(entry.lobbyId, updatedEntry);
+      return updatedEntry;
+    }));
+
+    return updatedEntries;
   };
 
   const buildRankedEntries = (
@@ -67,6 +129,7 @@ async function startServer() {
         selectedPlayers: entry.selectedPlayers,
         lockedAt: entry.lockedAt,
         isCurrentUser: currentUserId === entry.userId,
+        finalSnapshot: entry.finalSnapshot,
       }))
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
@@ -88,7 +151,10 @@ async function startServer() {
 
   const getLobbyLeaderboard = async (lobbyId: string, matchId: string, currentUserId?: string) => {
     const match = await matchProvider.getMatchSync(matchId);
-    const entries = (await lobbyStore.getEntries(lobbyId)).filter((entry) => entry.matchId === matchId);
+    const entries = await ensureFinalSnapshots(
+      (await lobbyStore.getEntries(lobbyId)).filter((entry) => entry.matchId === matchId),
+      match,
+    );
     const rankedEntries = buildRankedEntries(entries, match.playerStats, match.matchStatus === "FT", currentUserId);
 
     return { match, entries: rankedEntries };
@@ -97,8 +163,10 @@ async function startServer() {
   const getGlobalMatchLeaderboard = async (matchId: string, currentUserId?: string) => {
     const match = await matchProvider.getMatchSync(matchId);
     const seenUserIds = new Set<string>();
-    const entries = (await lobbyStore.getAllEntries())
-      .filter((entry) => entry.matchId === matchId)
+    const entries = (await ensureFinalSnapshots(
+      (await lobbyStore.getAllEntries()).filter((entry) => entry.matchId === matchId),
+      match,
+    ))
       .filter((entry) => {
         if (seenUserIds.has(entry.userId)) return false;
         seenUserIds.add(entry.userId);
@@ -171,11 +239,14 @@ async function startServer() {
       const existing = (await lobbyStore.getEntries(lobbyId)).find((entry) => entry.userId === userId && entry.matchId === matchId);
       const entry: LobbyEntry = {
         entryId: existing?.entryId ?? `${lobbyId}-${userId}-${matchId}`,
+        lobbyId,
         userId,
         displayName: typeof displayName === "string" && displayName.trim() ? displayName.trim() : "Player",
         matchId,
         selectedPlayers,
         lockedAt: existing?.lockedAt ?? new Date().toISOString(),
+        matchMetadata: existing?.matchMetadata ?? getMatchMetadata(match),
+        finalSnapshot: existing?.finalSnapshot,
       };
       const { created } = await lobbyStore.upsertEntry(lobbyId, entry);
       const leaderboard = await getLobbyLeaderboard(lobbyId, matchId, userId);
@@ -209,6 +280,35 @@ async function startServer() {
     } catch (err) {
       console.error("Failed to fetch current lobby entry:", err);
       res.status(502).json({ error: "Unable to fetch current lobby entry" });
+    }
+  });
+
+  app.get("/api/users/:userId/recent-matches", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      if (!userId.trim()) {
+        res.status(400).json({ error: "userId is required" });
+        return;
+      }
+
+      const recentEntries: RecentMatchEntry[] = (await lobbyStore.getEntriesForUser(userId))
+        .sort((a, b) => Date.parse(b.lockedAt) - Date.parse(a.lockedAt))
+        .slice(0, 12)
+        .map((entry) => ({
+          entryId: entry.entryId,
+          lobbyId: entry.lobbyId ?? `match-${entry.matchId}`,
+          matchId: entry.matchId,
+          displayName: entry.displayName,
+          selectedPlayers: entry.selectedPlayers,
+          lockedAt: entry.lockedAt,
+          match: entry.matchMetadata ?? entry.finalSnapshot?.match ?? null,
+          finalSnapshot: entry.finalSnapshot,
+        }));
+
+      res.json({ entries: recentEntries });
+    } catch (err) {
+      console.error("Failed to fetch recent matches:", err);
+      res.status(502).json({ error: "Unable to fetch recent matches" });
     }
   });
 
@@ -283,6 +383,19 @@ function createLobbyStore(): LobbyStore {
     return new PostgresLobbyStore(process.env.DATABASE_URL);
   }
   return new FileLobbyStore(process.env.LOBBY_STORE_PATH);
+}
+
+function createMissingPlayer(playerId: string, role: SlotRole): PlayerStats {
+  return {
+    id: playerId,
+    name: `${role} pick`,
+    team: "Unknown Team",
+    position: "UNK",
+    fouls: 0,
+    yellowCards: [],
+    redCards: [],
+    score: 0,
+  };
 }
 
 startServer();

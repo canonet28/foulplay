@@ -4,7 +4,7 @@ import { Shield, AlertTriangle, UserX, Check, Ghost, Share2, Trophy, HelpCircle,
 import { motion, AnimatePresence } from 'motion/react';
 import { calculatePlayerScore, getScoreBreakdown } from '../scoring';
 import { parseMatchDateTime, toMatchDate } from '../dateTime';
-import { LeaderboardEntry, LeaderboardResponse, LockedSelectedPlayers, MatchSyncResponse, PlayerStats, SelectedPlayers, SlotRole } from '../types';
+import { FinalEntrySnapshot, LeaderboardEntry, LeaderboardResponse, LockedSelectedPlayers, MatchSyncResponse, PlayerStats, SelectedPlayers, SlotRole } from '../types';
 
 type LeaderboardScope = 'lobby' | 'global';
 
@@ -12,6 +12,7 @@ interface CurrentEntryResponse {
   entry: {
     displayName: string;
     selectedPlayers: LockedSelectedPlayers;
+    finalSnapshot?: FinalEntrySnapshot;
   } | null;
 }
 
@@ -118,6 +119,7 @@ export default function BookedBoxDashboard() {
   const [copying, setCopying] = useState(false);
   const [resultCopied, setResultCopied] = useState(false);
   const [showFinalReport, setShowFinalReport] = useState(true);
+  const [restoredFinalSnapshot, setRestoredFinalSnapshot] = useState<FinalEntrySnapshot | null>(null);
   const [localSeconds, setLocalSeconds] = useState(0);
 
   useEffect(() => {
@@ -190,6 +192,19 @@ export default function BookedBoxDashboard() {
             setDisplayName(data.entry.displayName);
             setIsLocked(true);
             setHasRestoredEntry(true);
+            if (data.entry.finalSnapshot) {
+              setRestoredFinalSnapshot(data.entry.finalSnapshot);
+              setMatchData({
+                matchId: data.entry.finalSnapshot.match.matchId,
+                matchStatus: 'FT',
+                matchMinute: data.entry.finalSnapshot.matchMinute,
+                homeTeam: data.entry.finalSnapshot.match.homeTeam,
+                awayTeam: data.entry.finalSnapshot.match.awayTeam,
+                startsAt: data.entry.finalSnapshot.match.startsAt,
+                lockAt: data.entry.finalSnapshot.match.lockAt,
+                playerStats: data.entry.finalSnapshot.selectedPlayers.map(player => player.player),
+              });
+            }
             window.localStorage.removeItem(getDraftKey(matchId, lobbyId, userId));
             return;
           }
@@ -433,7 +448,7 @@ export default function BookedBoxDashboard() {
     })
     .reduce((val, acc) => val + acc, 0) : 0;
   const currentLeaderboardEntry = leaderboardEntries.find(entry => entry.isCurrentUser);
-  const totalScore = currentLeaderboardEntry?.score ?? localTotalScore;
+  const totalScore = currentLeaderboardEntry?.score ?? restoredFinalSnapshot?.totalScore ?? localTotalScore;
   const matchTeams = useMemo(
     () => Array.from(new Set((matchData?.playerStats ?? []).map(player => player.team).filter(Boolean))),
     [matchData?.playerStats]
@@ -482,6 +497,24 @@ export default function BookedBoxDashboard() {
           return [player.name, player.position, player.team].some(value => value.toLowerCase().includes(normalizedPickerSearch));
         })
     : [];
+  const currentFinalSnapshot = currentLeaderboardEntry?.finalSnapshot ?? restoredFinalSnapshot;
+  const isCompletedMatch = isLocked && matchData.matchStatus === 'FT';
+  const finalCardRows = (["Hitman", "HotHead", "LooseCannon"] as SlotRole[]).map(role => {
+    const snapshotPlayer = currentFinalSnapshot?.selectedPlayers.find(player => player.role === role);
+    if (snapshotPlayer) {
+      return snapshotPlayer;
+    }
+
+    const id = selectedPlayers[role];
+    const player = id ? matchData.playerStats.find(candidate => candidate.id === id) : undefined;
+    const breakdown = getScoreBreakdown(player, role, true);
+    return {
+      role,
+      player,
+      score: breakdown.total,
+      breakdown,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-slate-900 font-sans selection:bg-yellow-200 selection:text-black pb-4">
@@ -550,6 +583,83 @@ export default function BookedBoxDashboard() {
           </div>
         )}
 
+        {isCompletedMatch && (
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-auto mb-10 max-w-3xl overflow-hidden rounded-3xl bg-white shadow-[0_18px_55px_rgb(15,23,42,0.08)] ring-1 ring-slate-100 md:rounded-[2rem]"
+          >
+            <div className="bg-slate-950 px-6 py-7 text-white md:px-8 md:py-8">
+              <div className="text-[10px] font-mono font-black uppercase tracking-widest text-rose-300">Completed Match</div>
+              <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">
+                {matchData.homeTeam} <span className="text-slate-500">vs</span> {matchData.awayTeam}
+              </h2>
+              <div className="mt-6 flex items-end justify-between gap-4">
+                <div>
+                  <div className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">Your Final Score</div>
+                  <div className={`mt-1 text-6xl font-black tracking-tighter leading-none ${totalScore < 0 ? 'text-red-400' : 'text-yellow-300'}`}>
+                    {totalScore > 0 ? '+' : ''}{totalScore}
+                  </div>
+                </div>
+                {currentLeaderboardEntry && (
+                  <div className="rounded-2xl bg-white/10 px-4 py-3 text-right">
+                    <div className="text-[9px] font-mono font-black uppercase tracking-widest text-slate-400">Rank</div>
+                    <div className="mt-1 text-2xl font-black leading-none">#{currentLeaderboardEntry.rank}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 md:p-8">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">Final Card</div>
+                {currentFinalSnapshot && (
+                  <div className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">
+                    Saved {toMatchDate(currentFinalSnapshot.capturedAt)?.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </div>
+                )}
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-slate-100">
+                {finalCardRows.map(({ role, player, breakdown, score }) => (
+                  <div key={role} className="flex items-center justify-between gap-4 border-b border-slate-100 bg-white p-4 last:border-0">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">{role}</div>
+                      <div className="mt-1 truncate text-sm font-black tracking-tight text-slate-950">{player?.name ?? 'Unknown player'}</div>
+                      <div className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-slate-400">{player?.position ?? 'UNK'} / {player?.team ?? 'Unknown Team'}</div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 md:gap-3">
+                      {breakdown.polite < 0 && (
+                        <span className="hidden sm:inline whitespace-nowrap rounded-full border border-yellow-100 bg-yellow-50 px-2 py-0.5 text-[10px] font-mono text-yellow-600">Too Polite ({breakdown.polite})</span>
+                      )}
+                      <span className={`font-mono text-xl font-black ${score < 0 ? 'text-red-500' : 'text-slate-900'}`}>{score > 0 ? '+' : ''}{score}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={shareResultSummary}
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-slate-800"
+                >
+                  {resultCopied ? <Check size={16} /> : <Share2 size={16} />}
+                  {resultCopied ? 'Copied' : 'Share Result'}
+                </button>
+                <Link
+                  to="/"
+                  className="flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Fixtures
+                </Link>
+              </div>
+            </div>
+          </motion.section>
+        )}
+
+        {!isCompletedMatch && (
+        <>
         {/* The Matrix Top Layout */}
         <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))] place-content-center gap-4 md:gap-6 lg:gap-12 mb-8 md:mb-12 max-w-6xl mx-auto">
           {(["Hitman", "HotHead", "LooseCannon"] as SlotRole[]).map((role) => {
@@ -761,6 +871,8 @@ export default function BookedBoxDashboard() {
                   </div>
                 </div>
             </motion.div>
+        )}
+        </>
         )}
 
         {/* Role Picker */}
@@ -1026,27 +1138,21 @@ export default function BookedBoxDashboard() {
                   </div>
 
                   <div className="overflow-hidden rounded-2xl border border-slate-100">
-                    {Object.entries(selectedPlayers).map(([role, id]) => {
-                      if (!id) return null;
-                      const p = matchData.playerStats.find(p => p.id === id);
-                      const breakdown = getScoreBreakdown(p, role as SlotRole, true);
-                      const score = calculateFrontendScore(p, role as SlotRole, true);
-                      return (
-                        <div key={role} className="flex items-center justify-between gap-4 border-b border-slate-100 bg-white p-4 last:border-0">
-                          <div className="min-w-0">
-                            <div className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">{role}</div>
-                            <div className="mt-1 truncate text-sm font-black tracking-tight text-slate-950">{p?.name}</div>
-                            <div className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-slate-400">{p?.position} / {p?.team}</div>
-                          </div>
-                           <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                             {breakdown.polite < 0 && (
-                               <span className="hidden sm:inline text-[10px] font-mono text-yellow-600 bg-yellow-50 border border-yellow-100 px-2 py-0.5 rounded-full whitespace-nowrap">Too Polite ({breakdown.polite})</span>
-                             )}
-                             <span className={`font-mono text-xl font-black ${score < 0 ? 'text-red-500' : 'text-slate-900'}`}>{score > 0 ? '+' : ''}{score}</span>
-                           </div>
+                    {finalCardRows.map(({ role, player, breakdown, score }) => (
+                      <div key={role} className="flex items-center justify-between gap-4 border-b border-slate-100 bg-white p-4 last:border-0">
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">{role}</div>
+                          <div className="mt-1 truncate text-sm font-black tracking-tight text-slate-950">{player?.name ?? 'Unknown player'}</div>
+                          <div className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-slate-400">{player?.position ?? 'UNK'} / {player?.team ?? 'Unknown Team'}</div>
                         </div>
-                      )
-                    })}
+                         <div className="flex items-center gap-2 md:gap-3 shrink-0">
+                           {breakdown.polite < 0 && (
+                             <span className="hidden sm:inline text-[10px] font-mono text-yellow-600 bg-yellow-50 border border-yellow-100 px-2 py-0.5 rounded-full whitespace-nowrap">Too Polite ({breakdown.polite})</span>
+                           )}
+                           <span className={`font-mono text-xl font-black ${score < 0 ? 'text-red-500' : 'text-slate-900'}`}>{score > 0 ? '+' : ''}{score}</span>
+                         </div>
+                      </div>
+                    ))}
                   </div>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-2">

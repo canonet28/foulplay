@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Calendar, ChevronRight, HelpCircle, Shield, Trophy, X } from 'lucide-react';
 import { toMatchDate } from '../dateTime';
+import type { RecentMatchEntry } from '../types';
 
 const SHOW_SUPPORT_LINK = false;
 
@@ -18,10 +19,26 @@ interface Match {
   league: string;
 }
 
+function createLocalUserId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function Dashboard() {
   const [matches, setMatches] = useState<Match[]>([]);
+  const [recentMatches, setRecentMatches] = useState<RecentMatchEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRules, setShowRules] = useState(false);
+  const [userId] = useState(() => {
+    const existing = window.localStorage.getItem('foulcup:userId');
+    if (existing) return existing;
+    const next = createLocalUserId();
+    window.localStorage.setItem('foulcup:userId', next);
+    return next;
+  });
 
   useEffect(() => {
     fetch('/api/matches/upcoming')
@@ -35,6 +52,15 @@ export default function Dashboard() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    fetch(`/api/users/${encodeURIComponent(userId)}/recent-matches`)
+      .then(res => (res.ok ? res.json() : { entries: [] }))
+      .then(data => setRecentMatches(Array.isArray(data.entries) ? data.entries : []))
+      .catch(err => {
+        console.error("Failed to fetch recent matches", err);
+      });
+  }, [userId]);
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 font-sans">
@@ -134,6 +160,52 @@ export default function Dashboard() {
               );
             })}
           </div>
+        )}
+
+        {recentMatches.length > 0 && (
+          <section className="mt-12 md:mt-16">
+            <div className="mb-5 md:mb-6">
+              <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter">MY RECENT MATCHES</h2>
+              <p className="mt-2 text-sm font-medium text-slate-500">Your locked entries stay here after fixtures leave the upcoming list.</p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {recentMatches.map(entry => {
+                const match = entry.match;
+                const startDate = toMatchDate(match?.startsAt) ?? null;
+                const title = match ? `${match.homeTeam} vs ${match.awayTeam}` : `Match ${entry.matchId}`;
+                const url = `/match/${entry.matchId}?lobby=${encodeURIComponent(entry.lobbyId)}`;
+                return (
+                  <Link
+                    key={entry.entryId}
+                    to={url}
+                    className="group flex min-w-0 items-center justify-between gap-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-lg"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">
+                        <span>{entry.finalSnapshot ? 'Final' : 'Locked'}</span>
+                        {entry.finalSnapshot && (
+                          <>
+                            <span className="text-slate-300">/</span>
+                            <span className={entry.finalSnapshot.totalScore < 0 ? 'text-red-500' : 'text-slate-900'}>
+                              {entry.finalSnapshot.totalScore > 0 ? '+' : ''}{entry.finalSnapshot.totalScore} pts
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className="mt-1 truncate text-base font-black tracking-tight text-slate-950">{title}</div>
+                      <div className="mt-1 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
+                        {startDate ? startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Locked'} / {entry.displayName}
+                      </div>
+                    </div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-colors group-hover:bg-slate-950 group-hover:text-white">
+                      <ChevronRight size={20} strokeWidth={2.5} />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
         )}
       </main>
 
