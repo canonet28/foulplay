@@ -11,7 +11,15 @@
           "HotHead": "p3",
           "LooseCannon": "p2"
         },
-        "lockedAt": "2026-06-01T19:21:47.317Z"
+        "lockedAt": "2026-06-01T19:21:47.317Z",
+        "lobbyId": "match-mock",
+        "matchMetadata": {
+          "matchId": "mock",
+          "homeTeam": "Millwall",
+          "awayTeam": "West Ham",
+          "startsAt": "2026-06-12T10:49:46.859Z",
+          "lockAt": "2026-06-12T10:49:46.859Z"
+        }
       },
       {
         "entryId": "match-mock-1ab3a36a-8771-431c-a6b5-a09f338a131d-mock",
@@ -23,7 +31,8 @@
           "HotHead": "p2",
           "LooseCannon": "p3"
         },
-        "lockedAt": "2026-06-01T21:51:38.139Z"
+        "lockedAt": "2026-06-01T21:51:38.139Z",
+        "lobbyId": "match-mock"
       },
       {
         "entryId": "match-mock-local-mq5o3blz-anm70o42-mock",
@@ -35,7 +44,8 @@
           "HotHead": "p3",
           "LooseCannon": "p2"
         },
-        "lockedAt": "2026-06-08T20:33:03.758Z"
+        "lockedAt": "2026-06-08T20:33:03.758Z",
+        "lobbyId": "match-mock"
       }
     ],
     "match-mock2": [
@@ -49,7 +59,93 @@
           "HotHead": "p2",
           "LooseCannon": "p3"
         },
-        "lockedAt": "2026-06-06T02:39:13.280Z"
+        "lockedAt": "2026-06-06T02:39:13.280Z",
+        "lobbyId": "match-mock2",
+        "matchMetadata": {
+          "matchId": "mock2",
+          "homeTeam": "Millwall",
+          "awayTeam": "West Ham",
+          "startsAt": "2026-06-12T10:41:35.105Z",
+          "lockAt": "2026-06-12T10:41:35.105Z"
+        },
+        "finalSnapshot": {
+          "capturedAt": "2026-06-12T10:43:55.245Z",
+          "matchStatus": "FT",
+          "matchMinute": 90,
+          "match": {
+            "matchId": "mock2",
+            "homeTeam": "Millwall",
+            "awayTeam": "West Ham",
+            "startsAt": "2026-06-12T10:41:35.105Z",
+            "lockAt": "2026-06-12T10:41:35.105Z"
+          },
+          "totalScore": 7.5,
+          "selectedPlayers": [
+            {
+              "role": "Hitman",
+              "player": {
+                "id": "p1",
+                "name": "R. Keane",
+                "team": "Millwall",
+                "position": "MID",
+                "fouls": 1,
+                "yellowCards": [],
+                "redCards": [],
+                "score": 5
+              },
+              "score": 7.5,
+              "breakdown": {
+                "fouls": 7.5,
+                "yellows": 0,
+                "reds": 0,
+                "polite": 0,
+                "total": 7.5
+              }
+            },
+            {
+              "role": "HotHead",
+              "player": {
+                "id": "p2",
+                "name": "S. Ramos",
+                "team": "Millwall",
+                "position": "DEF",
+                "fouls": 0,
+                "yellowCards": [],
+                "redCards": [],
+                "score": -15
+              },
+              "score": -15,
+              "breakdown": {
+                "fouls": 0,
+                "yellows": 0,
+                "reds": 0,
+                "polite": -15,
+                "total": -15
+              }
+            },
+            {
+              "role": "LooseCannon",
+              "player": {
+                "id": "p3",
+                "name": "Pepe",
+                "team": "Millwall",
+                "position": "DEF",
+                "fouls": 3,
+                "yellowCards": [],
+                "redCards": [],
+                "score": 15
+              },
+              "score": 15,
+              "breakdown": {
+                "fouls": 15,
+                "yellows": 0,
+                "reds": 0,
+                "polite": 0,
+                "total": 15
+              }
+            }
+          ]
+        }
       },
       {
         "entryId": "match-mock2-local-mq5o3blz-anm70o42-mock2",
@@ -61,7 +157,191 @@
           "HotHead": "p3",
           "LooseCannon": "p2"
         },
-        "lockedAt": "2026-06-09T01:08:59.227Z"
+        "lockedAt": "2026-06-09T01:08:59.227Z",
+        "lobbyId": "match-mock2",
+        "matchMetadata": {
+          "matchId": "mock2",
+          "homeTeam": "Millwall",
+          "awayTeam": "West Ham",
+          "startsAt": "2026-06-12T10:41:35.105Z",
+          "lockAt": "2026-06-12T10:41:35.105Z"
+        },
+        "finalSnapshot": {
+          "capturedAt": "2026-06-12T10:43:53.244Z",
+          "matchStatus": "FT",
+          "matchMinute": 90,
+          "match": {
+            "matchId": "mock2",
+            "homeTeam": "Millwall",
+            "awayTeam": "West Ham",
+            "startsAt": "2026-06-12T10:41:35.105Z",
+            "lockAt": "2026-06-12T10:41:35.105Z"
+          },
+          "totalScore": 7.5,
+          "selectedPlayers": [
+            {
+              "role": "Hitman",
+              "player": {
+                "id": "p1",
+                "name": "R. Keane",
+                "team": "Millwall",
+                "position": "MID",
+                "fouls": 1,
+                "yellowCards": [],
+                "redCards": [],
+                "score": 5
+              },
+              "score": 7.5,
+              "breakdown": {
+                "fouls": 7.5,
+                "yellows": 0,
+                "reds": 0,
+                "polite": 0,
+                "total": 7.5
+              }
+            },
+            {
+              "role": "HotHead",
+              "player": {
+                "id": "p3",
+                "name": "Pepe",
+                "team": "Millwall",
+                "position": "DEF",
+                "fouls": 3,
+                "yellowCards": [],
+                "redCards": [],
+                "score": 15
+              },
+              "score": 15,
+              "breakdown": {
+                "fouls": 15,
+                "yellows": 0,
+                "reds": 0,
+                "polite": 0,
+                "total": 15
+              }
+            },
+            {
+              "role": "LooseCannon",
+              "player": {
+                "id": "p2",
+                "name": "S. Ramos",
+                "team": "Millwall",
+                "position": "DEF",
+                "fouls": 0,
+                "yellowCards": [],
+                "redCards": [],
+                "score": -15
+              },
+              "score": -15,
+              "breakdown": {
+                "fouls": 0,
+                "yellows": 0,
+                "reds": 0,
+                "polite": -15,
+                "total": -15
+              }
+            }
+          ]
+        }
+      },
+      {
+        "entryId": "match-mock2-99d827b9-3f65-4aa9-937f-c9410564072c-mock2",
+        "lobbyId": "match-mock2",
+        "userId": "99d827b9-3f65-4aa9-937f-c9410564072c",
+        "displayName": "You",
+        "matchId": "mock2",
+        "selectedPlayers": {
+          "Hitman": "p1",
+          "HotHead": "p2",
+          "LooseCannon": "p3"
+        },
+        "lockedAt": "2026-06-12T10:41:35.101Z",
+        "matchMetadata": {
+          "matchId": "mock2",
+          "homeTeam": "Millwall",
+          "awayTeam": "West Ham",
+          "startsAt": "2026-06-12T10:49:46.859Z",
+          "lockAt": "2026-06-12T10:49:46.859Z"
+        },
+        "finalSnapshot": {
+          "capturedAt": "2026-06-12T10:43:51.244Z",
+          "matchStatus": "FT",
+          "matchMinute": 90,
+          "match": {
+            "matchId": "mock2",
+            "homeTeam": "Millwall",
+            "awayTeam": "West Ham",
+            "startsAt": "2026-06-12T10:49:46.859Z",
+            "lockAt": "2026-06-12T10:49:46.859Z"
+          },
+          "totalScore": 7.5,
+          "selectedPlayers": [
+            {
+              "role": "Hitman",
+              "player": {
+                "id": "p1",
+                "name": "R. Keane",
+                "team": "Millwall",
+                "position": "MID",
+                "fouls": 1,
+                "yellowCards": [],
+                "redCards": [],
+                "score": 5
+              },
+              "score": 7.5,
+              "breakdown": {
+                "fouls": 7.5,
+                "yellows": 0,
+                "reds": 0,
+                "polite": 0,
+                "total": 7.5
+              }
+            },
+            {
+              "role": "HotHead",
+              "player": {
+                "id": "p2",
+                "name": "S. Ramos",
+                "team": "Millwall",
+                "position": "DEF",
+                "fouls": 0,
+                "yellowCards": [],
+                "redCards": [],
+                "score": -15
+              },
+              "score": -15,
+              "breakdown": {
+                "fouls": 0,
+                "yellows": 0,
+                "reds": 0,
+                "polite": -15,
+                "total": -15
+              }
+            },
+            {
+              "role": "LooseCannon",
+              "player": {
+                "id": "p3",
+                "name": "Pepe",
+                "team": "Millwall",
+                "position": "DEF",
+                "fouls": 3,
+                "yellowCards": [],
+                "redCards": [],
+                "score": 15
+              },
+              "score": 15,
+              "breakdown": {
+                "fouls": 15,
+                "yellows": 0,
+                "reds": 0,
+                "polite": 0,
+                "total": 15
+              }
+            }
+          ]
+        }
       }
     ]
   }

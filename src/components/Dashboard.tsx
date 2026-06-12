@@ -7,6 +7,8 @@ import type { RecentMatchEntry } from '../types';
 
 const SHOW_SUPPORT_LINK = false;
 
+type DashboardTab = 'upcoming' | 'mine';
+
 interface Match {
   id: string;
   homeTeam: string;
@@ -46,6 +48,7 @@ export default function Dashboard() {
   const [recentMatches, setRecentMatches] = useState<RecentMatchEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRules, setShowRules] = useState(false);
+  const [activeTab, setActiveTab] = useState<DashboardTab>('upcoming');
   const [userId] = useState(() => {
     const existing = window.localStorage.getItem('foulcup:userId');
     if (existing) return existing;
@@ -116,19 +119,50 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8 md:px-6 md:py-12">
-        <div className="mb-8 md:mb-12 text-center md:text-left">
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter mb-3 md:mb-4">
-             UPCOMING FIXTURES
-          </h2>
-          <p className="text-sm md:text-base text-slate-500 font-medium">Select a match below and assign your Roster for foulPlay.</p>
+        <div className="mb-8 md:mb-10">
+          <div className="mb-6 text-center md:text-left">
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter mb-3 md:mb-4">
+              {activeTab === 'upcoming' ? 'UPCOMING FIXTURES' : 'MY MATCHES'}
+            </h2>
+            <p className="text-sm md:text-base text-slate-500 font-medium">
+              {activeTab === 'upcoming'
+                ? 'Select a match below and assign your Roster for foulPlay.'
+                : 'Return to locked picks, live contests, and final results.'}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1 rounded-full bg-slate-100 p-1">
+            {([
+              ['upcoming', 'Upcoming', matches.length],
+              ['mine', 'My Matches', recentMatches.length],
+            ] as const).map(([tab, label, count]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`h-11 rounded-full px-3 text-[10px] font-mono font-black uppercase tracking-widest transition-all ${
+                  activeTab === tab
+                    ? 'bg-white text-slate-950 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                {label}
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-[9px] ${
+                  activeTab === tab ? 'bg-slate-100 text-slate-500' : 'bg-white/70 text-slate-400'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {loading ? (
+        {activeTab === 'upcoming' && loading ? (
           <div className="flex items-center justify-center py-20 text-slate-400 font-mono tracking-widest text-sm">LOADING MATCHES...</div>
-        ) : (
+        ) : activeTab === 'upcoming' ? (
           <div className="grid gap-4 md:gap-6">
-            {matches.map((match, idx) => {
-              return (
+            {matches.length > 0 ? (
+              matches.map((match, idx) => (
                 <FixtureCard
                   key={match.id}
                   to={`/match/${match.id}`}
@@ -142,44 +176,47 @@ export default function Dashboard() {
                   awayTeamFlag={match.awayTeamFlag}
                   delay={idx * 0.1}
                 />
-              );
-            })}
+              ))
+            ) : (
+              <EmptyState
+                title="No Fixtures Found"
+                body="There are no playable fixtures in the current window. Check back closer to kickoff."
+              />
+            )}
           </div>
-        )}
-
-        {recentMatches.length > 0 && (
-          <section className="mt-12 md:mt-16">
-            <div className="mb-5 md:mb-6">
-              <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter">MY RECENT MATCHES</h2>
-              <p className="mt-2 text-sm font-medium text-slate-500">Your locked entries stay here after fixtures leave the upcoming list.</p>
-            </div>
-
-            <div className="grid gap-4 md:gap-6">
-              {recentMatches.map((entry, idx) => {
-                const match = entry.match;
-                const url = `/match/${entry.matchId}?lobby=${encodeURIComponent(entry.lobbyId)}`;
-                const scoreLabel = entry.finalSnapshot
-                  ? `${entry.finalSnapshot.totalScore > 0 ? '+' : ''}${entry.finalSnapshot.totalScore} PTS`
-                  : undefined;
-                return (
-                  <FixtureCard
-                    key={entry.entryId}
-                    to={url}
-                    metaLabel={entry.finalSnapshot ? 'Final' : 'Locked'}
-                    date={match?.startsAt ?? entry.lockedAt}
-                    homeTeam={match?.homeTeam ?? `Match ${entry.matchId}`}
-                    awayTeam={match?.awayTeam ?? 'Details'}
-                    homeTeamLogo={match?.homeTeamLogo}
-                    awayTeamLogo={match?.awayTeamLogo}
-                    homeTeamFlag={match?.homeTeamFlag}
-                    awayTeamFlag={match?.awayTeamFlag}
-                    scoreLabel={scoreLabel}
-                    delay={idx * 0.06}
-                  />
-                );
-              })}
-            </div>
-          </section>
+        ) : (
+          <div className="grid gap-4 md:gap-6">
+            {recentMatches.length > 0 ? (
+              recentMatches.map((entry, idx) => {
+              const match = entry.match;
+              const url = `/match/${entry.matchId}?lobby=${encodeURIComponent(entry.lobbyId)}`;
+              const scoreLabel = entry.finalSnapshot
+                ? `${entry.finalSnapshot.totalScore > 0 ? '+' : ''}${entry.finalSnapshot.totalScore} PTS`
+                : undefined;
+              return (
+                <FixtureCard
+                  key={entry.entryId}
+                  to={url}
+                  metaLabel={entry.finalSnapshot ? 'Final' : 'Locked'}
+                  date={match?.startsAt ?? entry.lockedAt}
+                  homeTeam={match?.homeTeam ?? `Match ${entry.matchId}`}
+                  awayTeam={match?.awayTeam ?? 'Details'}
+                  homeTeamLogo={match?.homeTeamLogo}
+                  awayTeamLogo={match?.awayTeamLogo}
+                  homeTeamFlag={match?.homeTeamFlag}
+                  awayTeamFlag={match?.awayTeamFlag}
+                  scoreLabel={scoreLabel}
+                  delay={idx * 0.06}
+                />
+              );
+            })
+            ) : (
+              <EmptyState
+                title="No Matches Yet"
+                body="Locked picks and final results will appear here after you enter a fixture."
+              />
+            )}
+          </div>
         )}
       </main>
 
@@ -320,6 +357,15 @@ function FixtureCard({
         </div>
       </Link>
     </motion.div>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="flex min-h-48 flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center md:rounded-[2rem]">
+      <div className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">{title}</div>
+      <p className="mt-3 max-w-sm text-sm font-medium leading-6 text-slate-500">{body}</p>
+    </div>
   );
 }
 
