@@ -362,10 +362,12 @@ export class SportMonksMatchProvider implements MatchProvider {
         playerMap.get(playerId) ??
         createEventPlayer(playerId, event, resolveTeamName(event.team_id, home, away, event.team_name ?? event.team?.name));
       applyEvent(player, event);
+      normalizeCardMinutes(player);
       playerMap.set(playerId, player);
     }
 
     const playerStats = [...playerMap.values()].map((player) => ({
+      ...normalizeCardMinutes(player),
       ...player,
       score: calculatePlayerScore(player, null, status === 'FT'),
     }));
@@ -709,6 +711,21 @@ function isRedCardType(type: ReturnType<typeof getSportMonksType>) {
 function minutesFromValue(raw: unknown, count: number) {
   if (Array.isArray(raw)) return raw.map(Number).filter(Number.isFinite);
   return Array.from({ length: Math.max(0, count) }, () => 0);
+}
+
+function normalizeCardMinutes(player: PlayerStats) {
+  player.yellowCards = normalizeCardMinuteList(player.yellowCards);
+  player.redCards = normalizeCardMinuteList(player.redCards);
+  return player;
+}
+
+function normalizeCardMinuteList(minutes: number[]) {
+  const finiteMinutes = minutes.map(Number).filter(Number.isFinite);
+  const realMinutes = finiteMinutes.filter((minute) => minute > 0);
+  if (realMinutes.length > 0) {
+    return [...new Set(realMinutes)];
+  }
+  return finiteMinutes.slice(0, 1);
 }
 
 function createEventPlayer(playerId: string, event: any, team: string): PlayerStats {
