@@ -133,7 +133,7 @@ export class SportMonksMatchProvider implements MatchProvider {
 
   constructor(
     private apiToken: string,
-    private fixtureIncludes = process.env.SPORTMONKS_FIXTURE_INCLUDE ?? 'scores;events;participants;lineups;state',
+    private fixtureIncludes = process.env.SPORTMONKS_FIXTURE_INCLUDE ?? 'scores;events.type;participants;lineups.details.type;state',
     private preMatchFixtureIncludes = process.env.SPORTMONKS_PREMATCH_FIXTURE_INCLUDE ?? 'participants;lineups;state',
     private squadIncludes = process.env.SPORTMONKS_SQUAD_INCLUDE ?? 'player;position',
     private upcomingMode = process.env.SPORTMONKS_UPCOMING_MODE ?? 'date',
@@ -604,14 +604,60 @@ function getLineupStats(lineup: any) {
   const redCards: number[] = [];
 
   for (const detail of asArray(lineup.details)) {
-    const name = String(detail.type?.name ?? detail.type?.code ?? detail.name ?? '').toLowerCase();
-    const value = Number(detail.value?.total ?? detail.value ?? detail.data?.value ?? 0);
-    if (name.includes('foul')) fouls += Number.isFinite(value) ? value : 0;
-    if (name.includes('yellow')) yellowCards.push(...minutesFromValue(detail.value, value));
-    if (name.includes('red')) redCards.push(...minutesFromValue(detail.value, value));
+    const type = getSportMonksType(detail);
+    const value = getStatValue(detail);
+    if (isCommittedFoulType(type)) fouls += value;
+    if (isYellowCardType(type)) yellowCards.push(...minutesFromValue(detail.data?.value ?? detail.value, value));
+    if (isRedCardType(type)) redCards.push(...minutesFromValue(detail.data?.value ?? detail.value, value));
   }
 
   return { fouls, yellowCards, redCards };
+}
+
+function getSportMonksType(value: any) {
+  return {
+    id: Number(value?.type_id ?? value?.type?.id),
+    name: normalizeTypeName(value?.type?.name ?? value?.name),
+    code: normalizeTypeName(value?.type?.code),
+    developerName: normalizeTypeName(value?.type?.developer_name),
+  };
+}
+
+function normalizeTypeName(value: unknown) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function getStatValue(detail: any) {
+  const value = Number(
+    detail.data?.value?.total ??
+      detail.data?.value ??
+      detail.value?.total ??
+      detail.value ??
+      0,
+  );
+  return Number.isFinite(value) ? value : 0;
+}
+
+function isCommittedFoulType(type: ReturnType<typeof getSportMonksType>) {
+  return type.id === 56 || type.code === 'fouls' || type.developerName === 'fouls' || type.name === 'fouls';
+}
+
+function isYellowCardType(type: ReturnType<typeof getSportMonksType>) {
+  return type.code === 'yellowcard' ||
+    type.code === 'yellow-card' ||
+    type.developerName === 'yellowcard' ||
+    type.developerName === 'yellow_card' ||
+    type.name === 'yellowcard' ||
+    type.name === 'yellow card';
+}
+
+function isRedCardType(type: ReturnType<typeof getSportMonksType>) {
+  return type.code === 'redcard' ||
+    type.code === 'red-card' ||
+    type.developerName === 'redcard' ||
+    type.developerName === 'red_card' ||
+    type.name === 'redcard' ||
+    type.name === 'red card';
 }
 
 function minutesFromValue(raw: unknown, count: number) {
@@ -665,9 +711,9 @@ function createSquadPlayer(squadPlayer: any, team: any): PlayerStats | null {
 }
 
 function applyEvent(player: PlayerStats, event: any) {
-  const type = String(event.type?.name ?? event.type_name ?? event.name ?? '').toLowerCase();
+  const type = getSportMonksType(event);
   const minute = Number(event.minute ?? event.period?.minute ?? 0);
-  if (type.includes('foul')) player.fouls += 1;
-  if (type.includes('yellow')) player.yellowCards.push(Number.isFinite(minute) ? minute : 0);
-  if (type.includes('red')) player.redCards.push(Number.isFinite(minute) ? minute : 0);
+  if (isCommittedFoulType(type)) player.fouls += 1;
+  if (isYellowCardType(type)) player.yellowCards.push(Number.isFinite(minute) ? minute : 0);
+  if (isRedCardType(type)) player.redCards.push(Number.isFinite(minute) ? minute : 0);
 }
