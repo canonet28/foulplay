@@ -133,14 +133,24 @@ export class SportMonksMatchProvider implements MatchProvider {
 
   constructor(
     private apiToken: string,
-    private fixtureIncludes = process.env.SPORTMONKS_FIXTURE_INCLUDE ?? 'scores;events.type;participants;lineups.details.type;state',
+    fixtureIncludes = process.env.SPORTMONKS_FIXTURE_INCLUDE ?? 'scores;events.type;participants;lineups.details.type;state',
     private preMatchFixtureIncludes = process.env.SPORTMONKS_PREMATCH_FIXTURE_INCLUDE ?? 'participants;lineups;state',
     private squadIncludes = process.env.SPORTMONKS_SQUAD_INCLUDE ?? 'player;position',
     private upcomingMode = process.env.SPORTMONKS_UPCOMING_MODE ?? 'date',
     private worldCupSeasonId = process.env.SPORTMONKS_WORLD_CUP_SEASON_ID,
     private worldCupLeagueId = process.env.SPORTMONKS_WORLD_CUP_LEAGUE_ID,
     private worldCupName = process.env.SPORTMONKS_WORLD_CUP_NAME ?? 'FIFA World Cup',
-  ) {}
+  ) {
+    this.fixtureIncludes = ensureSportMonksIncludes(fixtureIncludes, [
+      'scores',
+      'events.type',
+      'participants',
+      'lineups.details.type',
+      'state',
+    ]);
+  }
+
+  private fixtureIncludes: string;
 
   async getUpcomingMatches() {
     if (this.upcomingMode === 'world-cup') {
@@ -170,7 +180,7 @@ export class SportMonksMatchProvider implements MatchProvider {
     }, this.getPreMatchFixtureCacheTtl(matchId));
 
     const preMatchSync = this.mapFixtureSync(preMatchData.data, matchId);
-    if (preMatchSync.matchStatus === 'PRE_MATCH') {
+    if (preMatchSync.matchStatus === 'PRE_MATCH' && !hasFixtureStarted(preMatchData.data)) {
       return this.withWorldCupSquadPlayers(preMatchData.data, preMatchSync);
     }
 
@@ -321,7 +331,12 @@ export class SportMonksMatchProvider implements MatchProvider {
 
   private mapFixtureSync(fixture: any, fallbackMatchId: string): MatchSyncResponse {
     const { home, away } = getParticipants(fixture);
-    const status = normalizeStatus(fixture.state?.short_name ?? fixture.state?.name ?? fixture.state_id);
+    const status = normalizeStatus([
+      fixture.state?.short_name,
+      fixture.state?.name,
+      fixture.state?.developer_name,
+      fixture.state_id,
+    ]);
     const playerMap = new Map<string, PlayerStats>();
 
     for (const lineup of asArray(fixture.lineups)) {
@@ -462,6 +477,17 @@ function filterUpcomingWindow(fixtures: any[]) {
   return sortFixturesByStartTime(fixtures.filter((fixture) => isInUpcomingFixtureWindow(fixture)));
 }
 
+function ensureSportMonksIncludes(includeList: string, requiredIncludes: string[]) {
+  const includes = new Set(
+    includeList
+      .split(';')
+      .map((include) => include.trim())
+      .filter(Boolean),
+  );
+  requiredIncludes.forEach((include) => includes.add(include));
+  return [...includes].join(';');
+}
+
 function extractSquadEntries(squadData: unknown): any[] {
   if (Array.isArray(squadData)) return squadData;
   if (!squadData || typeof squadData !== 'object') return [];
@@ -585,12 +611,20 @@ function resolveTeamName(teamId: unknown, home: any, away: any, fallback?: strin
 }
 
 function normalizeStatus(value: unknown): MatchStatus {
-  const status = String(value ?? '').toUpperCase();
-  if (['FT', 'FULL_TIME', 'FINISHED', 'ENDED'].some((candidate) => status.includes(candidate))) return 'FT';
-  if (['LIVE', 'INPLAY', 'IN_PLAY', '1ST_HALF', '2ND_HALF', 'HT', 'BREAK'].some((candidate) => status.includes(candidate))) {
+  const status = Array.isArray(value)
+    ? value.map((candidate) => String(candidate ?? '')).join(' ')
+    : String(value ?? '');
+  const normalizedStatus = status.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+  if (['FT', 'FULL_TIME', 'FINISHED', 'ENDED'].some((candidate) => normalizedStatus.includes(candidate))) return 'FT';
+  if (['LIVE', 'INPLAY', 'IN_PLAY', '1ST', '1ST_HALF', '2ND', '2ND_HALF', 'HT', 'HALF_TIME', 'BREAK'].some((candidate) => normalizedStatus.includes(candidate))) {
     return 'IN_PLAY';
   }
   return 'PRE_MATCH';
+}
+
+function hasFixtureStarted(fixture: any) {
+  const startsAt = parseMatchDateTime(fixture.starting_at);
+  return Number.isFinite(startsAt) && Date.now() >= startsAt;
 }
 
 function getFixtureMinute(fixture: any) {
@@ -645,19 +679,31 @@ function isCommittedFoulType(type: ReturnType<typeof getSportMonksType>) {
 function isYellowCardType(type: ReturnType<typeof getSportMonksType>) {
   return type.code === 'yellowcard' ||
     type.code === 'yellow-card' ||
+    type.code === 'yellowcards' ||
+    type.code === 'yellow-cards' ||
     type.developerName === 'yellowcard' ||
     type.developerName === 'yellow_card' ||
+    type.developerName === 'yellowcards' ||
+    type.developerName === 'yellow_cards' ||
     type.name === 'yellowcard' ||
-    type.name === 'yellow card';
+    type.name === 'yellow card' ||
+    type.name === 'yellowcards' ||
+    type.name === 'yellow cards';
 }
 
 function isRedCardType(type: ReturnType<typeof getSportMonksType>) {
   return type.code === 'redcard' ||
     type.code === 'red-card' ||
+    type.code === 'redcards' ||
+    type.code === 'red-cards' ||
     type.developerName === 'redcard' ||
     type.developerName === 'red_card' ||
+    type.developerName === 'redcards' ||
+    type.developerName === 'red_cards' ||
     type.name === 'redcard' ||
-    type.name === 'red card';
+    type.name === 'red card' ||
+    type.name === 'redcards' ||
+    type.name === 'red cards';
 }
 
 function minutesFromValue(raw: unknown, count: number) {

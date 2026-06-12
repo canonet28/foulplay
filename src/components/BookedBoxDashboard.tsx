@@ -519,6 +519,13 @@ export default function BookedBoxDashboard() {
   const selectedCount = Object.values(selectedPlayers).filter(Boolean).length;
   const hasDisplayName = displayName.trim().length >= 2;
   const lockDisabled = entryLockClosed || selectedCount < 3 || !hasDisplayName;
+  const startsAtDate = toMatchDate(matchData.startsAt);
+  const matchStatusLabel =
+    matchData.matchStatus === 'FT'
+      ? 'Full Time'
+      : matchData.matchStatus === 'IN_PLAY'
+        ? `Live${matchData.matchMinute ? ` / ${matchData.matchMinute}'` : ''}`
+        : 'Pre-match';
 
   const getSlotDetails = (role: SlotRole) => {
     switch (role) {
@@ -617,6 +624,31 @@ export default function BookedBoxDashboard() {
 
       {/* MATRIX / DASHBOARD TOGGLE */}
       <main className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-12">
+        <section className="mx-auto mb-6 max-w-3xl rounded-3xl border border-slate-100 bg-white px-4 py-4 shadow-sm md:mb-8 md:px-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-base font-black tracking-tight text-slate-950 md:gap-4 md:text-xl">
+              <span className="min-w-0 truncate text-right">{matchData.homeTeam}</span>
+              <span className="rounded-full bg-slate-100 px-2 py-1 font-mono text-[10px] font-black uppercase tracking-widest text-slate-400">vs</span>
+              <span className="min-w-0 truncate text-left">{matchData.awayTeam}</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
+              <span className={`rounded-full px-3 py-1 text-[10px] font-mono font-black uppercase tracking-widest ${
+                matchData.matchStatus === 'IN_PLAY'
+                  ? 'bg-rose-50 text-rose-600'
+                  : matchData.matchStatus === 'FT'
+                    ? 'bg-slate-950 text-white'
+                    : 'bg-slate-100 text-slate-500'
+              }`}>
+                {matchStatusLabel}
+              </span>
+              {startsAtDate && (
+                <span className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">
+                  {startsAtDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} / {startsAtDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
         
         {!isLocked && (
           <div className="mb-8 md:mb-10 max-w-2xl">
