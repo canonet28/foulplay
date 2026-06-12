@@ -93,7 +93,7 @@ World Cup team squads: 24 hours
 The default fixture detail include list is:
 
 ```txt
-scores;events;participants;lineups;state
+scores;events.type;participants;lineups.details.type;state
 ```
 
 Before kickoff, the app uses a lighter fixture include list:
@@ -130,6 +130,13 @@ Override it only if your SportMonks plan supports the requested nested includes:
 
 ```bash
 SPORTMONKS_FIXTURE_INCLUDE='scores;events;participants;lineups.details.type;state'
+```
+
+By default, picks lock 2 minutes after SportMonks reports the match as live, with a 5-minute safety cap after scheduled kickoff:
+
+```bash
+LOCK_GRACE_AFTER_LIVE_MS=120000
+LOCK_SCHEDULED_SAFETY_GRACE_MS=300000
 ```
 
 ## Persistence

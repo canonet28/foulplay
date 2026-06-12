@@ -7,6 +7,8 @@ import { parseMatchDateTime, toMatchDate } from '../dateTime';
 import { FinalEntrySnapshot, LeaderboardEntry, LeaderboardResponse, LockedSelectedPlayers, MatchSyncResponse, PlayerStats, SelectedPlayers, SlotRole } from '../types';
 
 type LeaderboardScope = 'lobby' | 'global';
+const LOCK_GRACE_AFTER_LIVE_MS = 2 * 60_000;
+const LOCK_SCHEDULED_SAFETY_GRACE_MS = 300_000;
 
 interface CurrentEntryResponse {
   entry: {
@@ -18,18 +20,17 @@ interface CurrentEntryResponse {
 
 function isEntryLockClosed(matchData: MatchSyncResponse | null) {
   if (!matchData) return false;
-  const deadline = matchData.lockAt ?? matchData.startsAt;
-  const deadlineMs = parseMatchDateTime(deadline);
-  return matchData.matchStatus !== 'PRE_MATCH' || (Number.isFinite(deadlineMs) && Date.now() > deadlineMs);
+  const deadlineMs = getEntryLockDeadlineMs(matchData);
+  return matchData.matchStatus === 'FT' || (Number.isFinite(deadlineMs) && Date.now() > deadlineMs);
 }
 
 function getLockLabel(matchData: MatchSyncResponse) {
-  const deadline = matchData.lockAt ?? matchData.startsAt;
-  if (matchData.matchStatus !== 'PRE_MATCH') return 'LOCK CLOSED';
-  if (!deadline) return 'LOCK OPEN';
-  const deadlineDate = toMatchDate(deadline);
+  const deadlineMs = getEntryLockDeadlineMs(matchData);
+  const deadlineDate = Number.isFinite(deadlineMs) ? new Date(deadlineMs) : null;
+  if (matchData.matchStatus === 'FT') return 'PICKS LOCKED';
   if (!deadlineDate) return 'LOCK OPEN';
-  return `LOCK CLOSES ${deadlineDate.toLocaleString(undefined, {
+  const label = matchData.matchStatus === 'IN_PLAY' ? 'MATCH LIVE / LOCK CLOSES' : 'LOCKS AFTER LIVE KICKOFF / SAFETY CUTOFF';
+  return `${label} ${deadlineDate.toLocaleString(undefined, {
     weekday: 'short',
     year: 'numeric',
     month: 'short',
@@ -38,6 +39,21 @@ function getLockLabel(matchData: MatchSyncResponse) {
     minute: '2-digit',
     timeZoneName: 'short',
   })}`;
+}
+
+function getEntryLockDeadlineMs(matchData: MatchSyncResponse) {
+  const scheduledStart = parseMatchDateTime(matchData.lockAt ?? matchData.startsAt);
+  const scheduledSafetyDeadline = Number.isFinite(scheduledStart)
+    ? scheduledStart + LOCK_SCHEDULED_SAFETY_GRACE_MS
+    : Number.POSITIVE_INFINITY;
+
+  if (matchData.matchStatus === 'IN_PLAY') {
+    const currentMinute = Number.isFinite(matchData.matchMinute) ? Math.max(0, matchData.matchMinute) : 0;
+    const estimatedLiveStartedAt = Date.now() - currentMinute * 60_000;
+    return Math.min(estimatedLiveStartedAt + LOCK_GRACE_AFTER_LIVE_MS, scheduledSafetyDeadline);
+  }
+
+  return scheduledSafetyDeadline;
 }
 
 function createLocalUserId() {
@@ -101,6 +117,7 @@ export default function BookedBoxDashboard() {
   });
   const [displayName, setDisplayName] = useState(() => window.localStorage.getItem('foulcup:displayName') || '');
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
+  const [finalRanks, setFinalRanks] = useState<{ lobby?: number; global?: number }>({});
   const [leaderboardScope, setLeaderboardScope] = useState<LeaderboardScope>('lobby');
   const [activeRole, setActiveRole] = useState<SlotRole | null>(null);
   const [pickerTeam, setPickerTeam] = useState('');
@@ -259,6 +276,34 @@ export default function BookedBoxDashboard() {
     const interval = setInterval(fetchLeaderboard, 2000);
     return () => clearInterval(interval);
   }, [fetchLeaderboard, isLocked]);
+
+  const fetchFinalRanks = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        userId,
+        matchId: matchId || 'mock',
+      });
+      const [lobbyRes, globalRes] = await Promise.all([
+        fetch(`/api/lobbies/${lobbyId}/leaderboard?${params.toString()}`),
+        fetch(`/api/matches/${matchId || 'mock'}/leaderboard?${params.toString()}`),
+      ]);
+      const [lobbyData, globalData]: [LeaderboardResponse, LeaderboardResponse] = await Promise.all([
+        lobbyRes.json(),
+        globalRes.json(),
+      ]);
+      setFinalRanks({
+        lobby: lobbyData.entries.find(entry => entry.isCurrentUser)?.rank,
+        global: globalData.entries.find(entry => entry.isCurrentUser)?.rank,
+      });
+    } catch (err) {
+      console.error("Failed to fetch final ranks:", err);
+    }
+  }, [lobbyId, matchId, userId]);
+
+  useEffect(() => {
+    if (!isLocked || matchData?.matchStatus !== 'FT') return;
+    fetchFinalRanks();
+  }, [fetchFinalRanks, isLocked, matchData?.matchStatus]);
 
   useEffect(() => {
     const name = displayName.trim();
@@ -449,6 +494,8 @@ export default function BookedBoxDashboard() {
     .reduce((val, acc) => val + acc, 0) : 0;
   const currentLeaderboardEntry = leaderboardEntries.find(entry => entry.isCurrentUser);
   const totalScore = currentLeaderboardEntry?.score ?? restoredFinalSnapshot?.totalScore ?? localTotalScore;
+  const lobbyRank = finalRanks.lobby ?? (leaderboardScope === 'lobby' ? currentLeaderboardEntry?.rank : undefined);
+  const globalRank = finalRanks.global ?? (leaderboardScope === 'global' ? currentLeaderboardEntry?.rank : undefined);
   const matchTeams = useMemo(
     () => Array.from(new Set((matchData?.playerStats ?? []).map(player => player.team).filter(Boolean))),
     [matchData?.playerStats]
@@ -601,12 +648,7 @@ export default function BookedBoxDashboard() {
                     {totalScore > 0 ? '+' : ''}{totalScore}
                   </div>
                 </div>
-                {currentLeaderboardEntry && (
-                  <div className="rounded-2xl bg-white/10 px-4 py-3 text-right">
-                    <div className="text-[9px] font-mono font-black uppercase tracking-widest text-slate-400">Rank</div>
-                    <div className="mt-1 text-2xl font-black leading-none">#{currentLeaderboardEntry.rank}</div>
-                  </div>
-                )}
+                <FinalRankPair lobbyRank={lobbyRank} globalRank={globalRank} />
               </div>
             </div>
 
@@ -1122,12 +1164,7 @@ export default function BookedBoxDashboard() {
                         {totalScore > 0 ? '+' : ''}{totalScore}
                       </div>
                     </div>
-                    {currentLeaderboardEntry && (
-                      <div className="rounded-2xl bg-white/10 px-4 py-3 text-right">
-                        <div className="text-[9px] font-mono font-black uppercase tracking-widest text-slate-400">Rank</div>
-                        <div className="mt-1 text-2xl font-black leading-none">#{currentLeaderboardEntry.rank}</div>
-                      </div>
-                    )}
+                    <FinalRankPair lobbyRank={lobbyRank} globalRank={globalRank} />
                   </div>
                 </div>
 
@@ -1178,6 +1215,27 @@ export default function BookedBoxDashboard() {
         </AnimatePresence>
 
       </main>
+    </div>
+  );
+}
+
+function FinalRankPair({ lobbyRank, globalRank }: { lobbyRank?: number; globalRank?: number }) {
+  if (!lobbyRank && !globalRank) return null;
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {typeof lobbyRank === 'number' && (
+        <div className="rounded-2xl bg-white/10 px-3 py-3 text-right">
+          <div className="text-[9px] font-mono font-black uppercase tracking-widest text-slate-400">Lobby</div>
+          <div className="mt-1 text-xl font-black leading-none">#{lobbyRank}</div>
+        </div>
+      )}
+      {typeof globalRank === 'number' && (
+        <div className="rounded-2xl bg-white/10 px-3 py-3 text-right">
+          <div className="text-[9px] font-mono font-black uppercase tracking-widest text-slate-400">Global</div>
+          <div className="mt-1 text-xl font-black leading-none">#{globalRank}</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -21,6 +21,8 @@ loadEnv({ path: ".env.local" });
 loadEnv();
 
 const slotRoles: SlotRole[] = ["Hitman", "HotHead", "LooseCannon"];
+const LOCK_GRACE_AFTER_LIVE_MS = readDurationEnv("LOCK_GRACE_AFTER_LIVE_MS", 2 * 60_000);
+const LOCK_SCHEDULED_SAFETY_GRACE_MS = readDurationEnv("LOCK_SCHEDULED_SAFETY_GRACE_MS", 300_000);
 
 async function startServer() {
   const app = express();
@@ -44,13 +46,23 @@ async function startServer() {
   };
 
   const getLockDeadline = (match: Awaited<ReturnType<MatchProvider["getMatchSync"]>>) => {
-    const deadline = match.lockAt ?? match.startsAt;
-    return parseMatchDateTime(deadline);
+    const scheduledStart = parseMatchDateTime(match.lockAt ?? match.startsAt);
+    const scheduledSafetyDeadline = Number.isFinite(scheduledStart)
+      ? scheduledStart + LOCK_SCHEDULED_SAFETY_GRACE_MS
+      : Number.POSITIVE_INFINITY;
+
+    if (match.matchStatus === "IN_PLAY") {
+      const currentMinute = Number.isFinite(match.matchMinute) ? Math.max(0, match.matchMinute) : 0;
+      const estimatedLiveStartedAt = Date.now() - currentMinute * 60_000;
+      return Math.min(estimatedLiveStartedAt + LOCK_GRACE_AFTER_LIVE_MS, scheduledSafetyDeadline);
+    }
+
+    return scheduledSafetyDeadline;
   };
 
   const isMatchLockClosed = (match: Awaited<ReturnType<MatchProvider["getMatchSync"]>>) => {
     const deadline = getLockDeadline(match);
-    return match.matchStatus !== "PRE_MATCH" || (Number.isFinite(deadline) && Date.now() > deadline);
+    return match.matchStatus === "FT" || (Number.isFinite(deadline) && Date.now() > deadline);
   };
 
   const calculateEntryScore = (entry: LobbyEntry, players: PlayerStats[], isFT: boolean) => {
@@ -407,6 +419,11 @@ function createLobbyStore(): LobbyStore {
     return new PostgresLobbyStore(process.env.DATABASE_URL);
   }
   return new FileLobbyStore(process.env.LOBBY_STORE_PATH);
+}
+
+function readDurationEnv(name: string, fallbackMs: number) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= 0 ? value : fallbackMs;
 }
 
 function createMissingPlayer(playerId: string, role: SlotRole): PlayerStats {
