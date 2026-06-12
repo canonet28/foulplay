@@ -168,7 +168,7 @@ export default function Dashboard() {
                     metaLabel={entry.finalSnapshot ? 'Final' : 'Locked'}
                     date={match?.startsAt ?? entry.lockedAt}
                     homeTeam={match?.homeTeam ?? `Match ${entry.matchId}`}
-                    awayTeam={match?.awayTeam ?? entry.displayName}
+                    awayTeam={match?.awayTeam ?? 'Details'}
                     homeTeamLogo={match?.homeTeamLogo}
                     awayTeamLogo={match?.awayTeamLogo}
                     homeTeamFlag={match?.homeTeamFlag}

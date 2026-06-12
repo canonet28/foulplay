@@ -295,10 +295,30 @@ async function startServer() {
         return;
       }
 
-      const recentEntries: RecentMatchEntry[] = (await lobbyStore.getEntriesForUser(userId))
+      const entries = (await lobbyStore.getEntriesForUser(userId))
         .sort((a, b) => Date.parse(b.lockedAt) - Date.parse(a.lockedAt))
-        .slice(0, 12)
-        .map((entry) => ({
+        .slice(0, 12);
+
+      const entriesWithMetadata = await Promise.all(entries.map(async (entry) => {
+        if (entry.matchMetadata || entry.finalSnapshot?.match) return entry;
+
+        try {
+          const match = await matchProvider.getMatchSync(entry.matchId);
+          const updatedEntry: LobbyEntry = {
+            ...entry,
+            matchMetadata: getMatchMetadata(match),
+          };
+          if (entry.lobbyId) {
+            await lobbyStore.upsertEntry(entry.lobbyId, updatedEntry);
+          }
+          return updatedEntry;
+        } catch (err) {
+          console.warn(`Unable to backfill match metadata for ${entry.matchId}:`, err);
+          return entry;
+        }
+      }));
+
+      const recentEntries: RecentMatchEntry[] = entriesWithMetadata.map((entry) => ({
           entryId: entry.entryId,
           lobbyId: entry.lobbyId ?? `match-${entry.matchId}`,
           matchId: entry.matchId,
