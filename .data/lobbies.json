@@ -45,7 +45,14 @@
           "LooseCannon": "p2"
         },
         "lockedAt": "2026-06-08T20:33:03.758Z",
-        "lobbyId": "match-mock"
+        "lobbyId": "match-mock",
+        "matchMetadata": {
+          "matchId": "mock",
+          "homeTeam": "Millwall",
+          "awayTeam": "West Ham",
+          "startsAt": "2026-06-16T00:31:17.498Z",
+          "lockAt": "2026-06-16T00:31:17.498Z"
+        }
       }
     ],
     "match-mock2": [

@@ -545,6 +545,8 @@ export default function BookedBoxDashboard() {
     : [];
   const currentFinalSnapshot = currentLeaderboardEntry?.finalSnapshot ?? restoredFinalSnapshot;
   const isCompletedMatch = isLocked && matchData.matchStatus === 'FT';
+  const homeFlag = matchData.homeTeamFlag ?? getFallbackFlag(matchData.homeTeam);
+  const awayFlag = matchData.awayTeamFlag ?? getFallbackFlag(matchData.awayTeam);
   const finalCardRows = (["Hitman", "HotHead", "LooseCannon"] as SlotRole[]).map(role => {
     const snapshotPlayer = currentFinalSnapshot?.selectedPlayers.find(player => player.role === role);
     if (snapshotPlayer) {
@@ -566,7 +568,7 @@ export default function BookedBoxDashboard() {
     <div className="min-h-screen bg-[#FAFAFA] text-slate-900 font-sans selection:bg-yellow-200 selection:text-black pb-4">
       
       {/* HEADER */}
-      <header className="sticky top-0 z-20 px-4 py-3 md:px-10 md:py-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-white/80 backdrop-blur-2xl border-b border-black/[0.03]">
+      <header className="sticky top-0 z-30 px-4 py-3 md:px-10 md:py-5 flex items-center justify-between bg-white/85 backdrop-blur-2xl border-b border-black/[0.03]">
         <div className="flex items-center gap-3 md:gap-4 min-w-0 w-full md:w-auto">
           <Link to="/" className="w-9 h-9 md:w-10 md:h-10 bg-slate-100 hover:bg-slate-200 flex items-center justify-center rounded-xl text-slate-500 transition-colors active:bg-slate-300 shrink-0">
             <ArrowLeft size={18} />
@@ -583,49 +585,44 @@ export default function BookedBoxDashboard() {
             </div>
           </div>
         </div>
+      </header>
 
-        <div className="flex gap-3 md:gap-8 items-center justify-between w-full md:w-auto">
-          {isLocked && (
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="text-left md:text-right">
-                <div className="text-[10px] text-slate-400 font-mono tracking-widest uppercase mb-1 font-black">Score</div>
-                <div className={`text-3xl md:text-4xl font-black font-mono leading-none tracking-tighter ${totalScore < 0 ? 'text-red-500' : 'text-slate-950'}`}>
-                  {totalScore > 0 ? '+' : ''}{totalScore}
-                </div>
-              </div>
-              <div className="hidden md:block w-[1px] h-10 bg-slate-200 indent-[-9999px]">|</div>
+      <section className="sticky top-[65px] z-20 border-b border-black/[0.03] bg-white/80 px-4 py-2.5 backdrop-blur-xl md:top-[83px] md:px-10">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-col justify-center">
+            <div className="flex items-center gap-2">
+              <TeamFlag flag={homeFlag} name={matchData.homeTeam} />
+              <span className="font-mono text-[10px] font-black uppercase tracking-widest text-slate-300">vs</span>
+              <TeamFlag flag={awayFlag} name={matchData.awayTeam} />
             </div>
-          )}
-          <div className="flex items-center gap-2 md:gap-4 ml-auto">
-          <button 
-            onClick={() => setShowRules(true)}
-            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-colors focus:outline-none"
-            aria-label="How to play"
-          >
-            <HelpCircle size={20} />
-          </button>
-          
-          <button 
-            onClick={shareLobbyLink}
-            className="flex items-center gap-2 px-4 md:px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white transition-all rounded-full text-xs font-semibold focus:outline-none shadow-md shadow-slate-900/10"
-          >
-            {copying ? <Check size={16} /> : <Share2 size={16} />}
-            <span className="tracking-wide uppercase font-mono">{copying ? 'LINK COPIED' : 'SHARE LOBBY'}</span>
-          </button>
+            <button
+              type="button"
+              onClick={shareLobbyLink}
+              className="mt-1 flex w-fit items-center gap-1.5 text-[10px] font-mono font-black uppercase tracking-widest text-slate-500 transition-colors hover:text-slate-950"
+            >
+              {copying ? <Check size={13} /> : <Share2 size={13} />}
+              {copying ? 'Link Copied' : 'Share Lobby'}
+            </button>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3">
+            <div className={`font-mono text-5xl font-black leading-none tracking-tighter md:text-6xl ${!isLocked ? 'text-slate-300' : totalScore < 0 ? 'text-red-500' : 'text-slate-950'}`}>
+              {isLocked ? `${totalScore > 0 ? '+' : ''}${totalScore}` : '--'}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowRules(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-900"
+              aria-label="How to play"
+            >
+              <HelpCircle size={18} />
+            </button>
           </div>
         </div>
-      </header>
+      </section>
 
       {/* MATRIX / DASHBOARD TOGGLE */}
       <main className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-12">
-        <section className="mb-5 md:mb-7">
-          <div className="flex min-w-0 items-center gap-2 text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">
-            <span className="min-w-0 truncate">{matchData.homeTeam}</span>
-            <span className="text-slate-300">vs</span>
-            <span className="min-w-0 truncate">{matchData.awayTeam}</span>
-          </div>
-        </section>
-        
         {!isLocked && (
           <div className="mb-8 md:mb-10 max-w-2xl">
             <div className="text-left">
@@ -1247,3 +1244,79 @@ function FinalRankPair({ lobbyRank, globalRank }: { lobbyRank?: number; globalRa
     </div>
   );
 }
+
+function TeamFlag({ flag, name }: { flag?: string; name: string }) {
+  return (
+    <span
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-2xl shadow-sm ring-1 ring-slate-100"
+      role={flag ? 'img' : undefined}
+      aria-label={flag ? `${name} flag` : name}
+      title={name}
+    >
+      {flag ?? name.slice(0, 2).toUpperCase()}
+    </span>
+  );
+}
+
+function getFallbackFlag(teamName: string) {
+  const code = COUNTRY_FLAG_CODES[normalizeTeamName(teamName)];
+  return code ? countryCodeToFlag(code) : undefined;
+}
+
+function normalizeTeamName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function countryCodeToFlag(code: string) {
+  return code
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
+}
+
+const COUNTRY_FLAG_CODES: Record<string, string> = {
+  argentina: 'AR',
+  australia: 'AU',
+  belgium: 'BE',
+  'bosnia and herzegovina': 'BA',
+  bosnia: 'BA',
+  brazil: 'BR',
+  canada: 'CA',
+  colombia: 'CO',
+  croatia: 'HR',
+  denmark: 'DK',
+  ecuador: 'EC',
+  england: 'GB',
+  france: 'FR',
+  germany: 'DE',
+  ghana: 'GH',
+  iran: 'IR',
+  italy: 'IT',
+  'ivory coast': 'CI',
+  japan: 'JP',
+  'korea republic': 'KR',
+  mexico: 'MX',
+  morocco: 'MA',
+  netherlands: 'NL',
+  nigeria: 'NG',
+  panama: 'PA',
+  poland: 'PL',
+  portugal: 'PT',
+  qatar: 'QA',
+  'saudi arabia': 'SA',
+  senegal: 'SN',
+  serbia: 'RS',
+  'south africa': 'ZA',
+  'south korea': 'KR',
+  spain: 'ES',
+  switzerland: 'CH',
+  tunisia: 'TN',
+  ukraine: 'UA',
+  'united states': 'US',
+  uruguay: 'UY',
+  usa: 'US',
+  wales: 'GB',
+};
