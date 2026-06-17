@@ -28,7 +28,6 @@ const SPORTMONKS_PREMATCH_NEAR_CACHE_MS = 60_000;
 const SPORTMONKS_PREMATCH_CLOSE_CACHE_MS = 15_000;
 const SPORTMONKS_WORLD_CUP_SQUAD_CACHE_MS = 24 * 60 * 60_000;
 const UPCOMING_FIXTURE_WINDOW_MS = 48 * 60 * 60_000;
-const RECENT_FIXTURE_GRACE_MS = 6 * 60 * 60_000;
 
 const initialPlayers: PlayerStats[] = [
   { id: 'p1', name: 'R. Keane', team: 'Millwall', position: 'MID', fouls: 0, yellowCards: [], redCards: [], score: 0 },
@@ -459,13 +458,13 @@ function collectScheduleFixtures(scheduleData: unknown) {
 }
 
 function isInUpcomingFixtureWindow(fixture: any) {
-  if (getFixtureStatus(fixture) === 'FT') return false;
+  if (getFixtureStatus(fixture) !== 'PRE_MATCH') return false;
 
   const startingAt = parseMatchDateTime(fixture.starting_at);
   if (!Number.isFinite(startingAt)) return false;
 
   const now = Date.now();
-  return startingAt >= now - RECENT_FIXTURE_GRACE_MS && startingAt <= now + UPCOMING_FIXTURE_WINDOW_MS;
+  return startingAt >= now && startingAt <= now + UPCOMING_FIXTURE_WINDOW_MS;
 }
 
 function sortFixturesByStartTime(fixtures: any[]) {
