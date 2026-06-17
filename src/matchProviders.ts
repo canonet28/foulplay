@@ -331,12 +331,7 @@ export class SportMonksMatchProvider implements MatchProvider {
 
   private mapFixtureSync(fixture: any, fallbackMatchId: string): MatchSyncResponse {
     const { home, away } = getParticipants(fixture);
-    const status = normalizeStatus([
-      fixture.state?.short_name,
-      fixture.state?.name,
-      fixture.state?.developer_name,
-      fixture.state_id,
-    ]);
+    const status = getFixtureStatus(fixture);
     const playerMap = new Map<string, PlayerStats>();
 
     for (const lineup of asArray(fixture.lineups)) {
@@ -464,6 +459,8 @@ function collectScheduleFixtures(scheduleData: unknown) {
 }
 
 function isInUpcomingFixtureWindow(fixture: any) {
+  if (getFixtureStatus(fixture) === 'FT') return false;
+
   const startingAt = parseMatchDateTime(fixture.starting_at);
   if (!Number.isFinite(startingAt)) return false;
 
@@ -477,6 +474,15 @@ function sortFixturesByStartTime(fixtures: any[]) {
 
 function filterUpcomingWindow(fixtures: any[]) {
   return sortFixturesByStartTime(fixtures.filter((fixture) => isInUpcomingFixtureWindow(fixture)));
+}
+
+function getFixtureStatus(fixture: any): MatchStatus {
+  return normalizeStatus([
+    fixture.state?.short_name,
+    fixture.state?.name,
+    fixture.state?.developer_name,
+    fixture.state_id,
+  ]);
 }
 
 function ensureSportMonksIncludes(includeList: string, requiredIncludes: string[]) {
@@ -617,11 +623,48 @@ function normalizeStatus(value: unknown): MatchStatus {
     ? value.map((candidate) => String(candidate ?? '')).join(' ')
     : String(value ?? '');
   const normalizedStatus = status.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
-  if (['FT', 'FULL_TIME', 'FINISHED', 'ENDED'].some((candidate) => normalizedStatus.includes(candidate))) return 'FT';
-  if (['LIVE', 'INPLAY', 'IN_PLAY', '1ST', '1ST_HALF', '2ND', '2ND_HALF', 'HT', 'HALF_TIME', 'BREAK'].some((candidate) => normalizedStatus.includes(candidate))) {
+  if (isTerminalFixtureStatus(normalizedStatus)) return 'FT';
+  if ([
+    'LIVE',
+    'INPLAY',
+    'IN_PLAY',
+    '1ST',
+    '1ST_HALF',
+    '2ND',
+    '2ND_HALF',
+    'HT',
+    'HALF_TIME',
+    'BREAK',
+    'ET',
+    'EXTRA_TIME',
+    'AET',
+    'PEN',
+    'PENALTIES',
+    'PENALTY_SHOOTOUT',
+  ].some((candidate) => normalizedStatus.includes(candidate))) {
     return 'IN_PLAY';
   }
   return 'PRE_MATCH';
+}
+
+function isTerminalFixtureStatus(status: string) {
+  return [
+    'FT',
+    'FULL_TIME',
+    'FINISHED',
+    'ENDED',
+    'AET',
+    'AFTER_EXTRA_TIME',
+    'FT_PEN',
+    'AFTER_PENALTIES',
+    'PENALTIES_ENDED',
+    'ABANDONED',
+    'CANCELLED',
+    'CANCELED',
+    'POSTPONED',
+    'WALKOVER',
+    'AWARDED',
+  ].some((candidate) => status.includes(candidate));
 }
 
 function hasFixtureStarted(fixture: any) {
