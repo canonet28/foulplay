@@ -494,6 +494,7 @@ export default function BookedBoxDashboard() {
     .reduce((val, acc) => val + acc, 0) : 0;
   const currentLeaderboardEntry = leaderboardEntries.find(entry => entry.isCurrentUser);
   const totalScore = currentLeaderboardEntry?.score ?? restoredFinalSnapshot?.totalScore ?? localTotalScore;
+  const stickyScoreColor = getScoreColor(totalScore, isLocked);
   const lobbyRank = finalRanks.lobby ?? (leaderboardScope === 'lobby' ? currentLeaderboardEntry?.rank : undefined);
   const globalRank = finalRanks.global ?? (leaderboardScope === 'global' ? currentLeaderboardEntry?.rank : undefined);
   const matchTeams = useMemo(
@@ -598,7 +599,7 @@ export default function BookedBoxDashboard() {
             <button
               type="button"
               onClick={shareLobbyLink}
-              className="mt-1 flex w-fit items-center gap-1.5 text-[10px] font-mono font-black uppercase tracking-widest text-slate-500 transition-colors hover:text-slate-950"
+              className="mt-1 flex w-fit items-center gap-1.5 rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-mono font-black uppercase tracking-widest text-white shadow-sm transition-colors hover:bg-slate-800"
             >
               {copying ? <Check size={13} /> : <Share2 size={13} />}
               {copying ? 'Link Copied' : 'Share Lobby'}
@@ -606,7 +607,7 @@ export default function BookedBoxDashboard() {
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <div className={`font-mono text-5xl font-black leading-none tracking-tighter md:text-6xl ${!isLocked ? 'text-slate-300' : totalScore < 0 ? 'text-red-500' : 'text-slate-950'}`}>
+            <div className={`font-mono text-5xl font-black leading-none tracking-tighter md:text-6xl ${stickyScoreColor}`}>
               {isLocked ? `${totalScore > 0 ? '+' : ''}${totalScore}` : '--'}
             </div>
             <button
@@ -1243,6 +1244,13 @@ function FinalRankPair({ lobbyRank, globalRank }: { lobbyRank?: number; globalRa
       )}
     </div>
   );
+}
+
+function getScoreColor(score: number, isLocked: boolean) {
+  if (!isLocked) return 'text-orange-400';
+  if (score > 0) return 'text-emerald-500';
+  if (score < 0) return 'text-red-500';
+  return 'text-orange-400';
 }
 
 function TeamFlag({ flag, name }: { flag?: string; name: string }) {
