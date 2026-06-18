@@ -64,6 +64,35 @@ function createLocalUserId() {
   return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function createLocalLobbyId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `lobby-${crypto.randomUUID().slice(0, 8)}`;
+  }
+
+  return `lobby-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getLobbyKey(matchId: string | undefined) {
+  return `foulcup:lobby:${matchId || 'mock'}`;
+}
+
+function getOrCreateLobbyId(matchId: string | undefined) {
+  const params = new URLSearchParams(window.location.search);
+  const sharedLobbyId = params.get('lobby');
+  if (sharedLobbyId) {
+    window.localStorage.setItem(getLobbyKey(matchId), sharedLobbyId);
+    return sharedLobbyId;
+  }
+
+  const lobbyKey = getLobbyKey(matchId);
+  const existingLobbyId = window.localStorage.getItem(lobbyKey);
+  const lobbyId = existingLobbyId || createLocalLobbyId();
+  window.localStorage.setItem(lobbyKey, lobbyId);
+  params.set('lobby', lobbyId);
+  window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+  return lobbyId;
+}
+
 function getDraftKey(matchId: string | undefined, lobbyId: string, userId: string) {
   return `foulcup:draft:${matchId || 'mock'}:${lobbyId}:${userId}`;
 }
@@ -107,7 +136,7 @@ async function copyTextToClipboard(text: string) {
 export default function BookedBoxDashboard() {
   const { matchId } = useParams<{ matchId: string }>();
   const [matchData, setMatchData] = useState<MatchSyncResponse | null>(null);
-  const [lobbyId] = useState(() => new URLSearchParams(window.location.search).get('lobby') || `match-${matchId || 'mock'}`);
+  const [lobbyId] = useState(() => getOrCreateLobbyId(matchId));
   const [userId] = useState(() => {
     const existing = window.localStorage.getItem('foulcup:userId');
     if (existing) return existing;
