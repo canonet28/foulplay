@@ -70,6 +70,8 @@ export class MockMatchProvider implements MatchProvider {
       matchMinute: Math.min(this.matchMinute, 90),
       homeTeam: 'Millwall',
       awayTeam: 'West Ham',
+      homeTeamFlag: '🇬🇧',
+      awayTeamFlag: '🇬🇧',
       startsAt,
       lockAt: startsAt,
       playerStats: this.currentPlayers,
